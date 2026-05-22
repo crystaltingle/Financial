@@ -329,9 +329,17 @@ tr:hover td{background:rgba(255,255,255,0.015);}
 
 <!-- CONTRIBUTIONS -->
 <div id="view-contributions" class="view">
-  <div class="page-header"><h1>Savings & Retirement</h1><p>2026 contribution tracking</p></div>
+  <div class="page-header">
+    <div class="header-actions">
+      <div><h1>Savings & Retirement</h1><p>Contribution tracking</p></div>
+      <select id="contrib-year" onchange="renderContributions()" style="width:auto;padding:7px 12px;font-size:13px;">
+        <option value="2026">2026</option>
+        <option value="2025">2025</option>
+      </select>
+    </div>
+  </div>
   <div id="contrib-grand-totals" class="section"></div>
-  <div class="contrib-section-title">2026 Progress <span>goal vs contributed</span></div>
+  <div class="contrib-section-title" id="contrib-progress-title">Progress <span>goal vs contributed</span></div>
   <div class="three-col section" id="contrib-progress-cards"></div>
   <div class="contrib-section-title">Weekly Entry <span>tap account to expand</span></div>
   <div id="contrib-entry-tables"></div>
@@ -934,12 +942,22 @@ function skipImportRow(i){importRows[i].skipped=!importRows[i].skipped;renderRev
 async function saveAllReviewed(){const ready=importRows.filter(r=>!r.saved&&!r.skipped&&r.category&&r.who);if(!ready.length){showToast("Fill category and who first",true);return;}const txns=ready.map(row=>({id:row.id,date:row.date,store:row.store,note:row.note||"",category:row.category,amount:row.amount,who:row.who,charge_type:row.charge_type,week_start:getWeekStart(row.date),week:getWeekLabel(row.date),month:getMonthLabel(row.date),year:getYear(row.date)}));const{error}=await sb.from("transactions").insert(txns);if(error){showToast("Error: "+error.message,true);return;}ready.forEach(r=>{const idx=importRows.findIndex(x=>x.id===r.id);if(idx>=0)importRows[idx].saved=true;});await loadAllData();renderReviewRows();showToast(`${txns.length} saved ✓`);}
 function resetImport(){importRows=[];document.getElementById("import-upload-card").style.display="block";document.getElementById("import-review-area").style.display="none";document.getElementById("csv-file").value="";}
 
-// ── CONTRIBUTIONS ─────────────────────────────────────────────────────────────
-function generateAllWeeks2026(){
-  const weeks=[],firstMon=new Date("2025-12-29T12:00:00");
-  for(let i=0;i<52;i++){const d=new Date(firstMon);d.setDate(d.getDate()+i*7);const ds=d.toISOString().slice(0,10);weeks.push({dateStr:ds,label:getWeekLabel(ds),weekNum:i+1});}
+// Generate all 52 weeks for a given year
+function generateWeeksForYear(year){
+  const weeks=[];
+  // Find the Monday of Week 01 (ISO: week containing Jan 1)
+  const jan1=new Date(`${year}-01-01T12:00:00`);
+  const jan1Day=jan1.getDay(); // 0=Sun
+  const daysToMon=jan1Day===0?-6:1-jan1Day;
+  const firstMon=new Date(jan1);firstMon.setDate(jan1.getDate()+daysToMon);
+  for(let i=0;i<52;i++){
+    const d=new Date(firstMon);d.setDate(d.getDate()+i*7);
+    const ds=d.toISOString().slice(0,10);
+    weeks.push({dateStr:ds,label:getWeekLabel(ds),weekNum:i+1});
+  }
   return weeks;
 }
+
 function buildContribMap(){const m={};contribCache.forEach(c=>{m[c.id]=c;});return m;}
 
 function getLastAmount(accountKey,upToDateStr,cm,weeks){
@@ -956,64 +974,118 @@ function drawRing(canvas,pct,color,size){
   if(pct>0){const end=-Math.PI/2+(Math.min(pct,1)*2*Math.PI);ctx.beginPath();ctx.arc(cx,cy,r,-Math.PI/2,end);ctx.strokeStyle=color;ctx.lineWidth=7;ctx.lineCap="round";ctx.stroke();}
 }
 
+function getSelectedContribYear(){
+  return parseInt(document.getElementById("contrib-year")?.value||"2026");
+}
+
 function renderContributions(){
-  const weeks=generateAllWeeks2026(),cm=buildContribMap();
-  const totals={};
-  ACCOUNTS.forEach(acc=>{totals[acc.key]=weeks.reduce((s,w)=>{const c=cm[`${acc.key}_${w.dateStr}`];return s+(c&&c.checked?parseFloat(c.amount||0):0);},0);});
-  const crystalTotal=(totals.crystal401k||0)+(totals.crystalIRA||0)+(totals.hsa||0)+(totals.crystalBrok||0);
-  const aaronTotal=(totals.aaron401k||0)+(totals.aaronIRA||0)+(totals.aaronBrok||0);
-  const grandTotal=crystalTotal+aaronTotal+(totals.emergency||0);
+  const selectedYear=getSelectedContribYear();
+  const weeks=generateWeeksForYear(selectedYear);
+  const allWeeks=[...generateWeeksForYear(2025),...generateWeeksForYear(2026)];
+  const cm=buildContribMap();
+
+  // Totals for SELECTED year only
+  const yearTotals={};
+  ACCOUNTS.forEach(acc=>{
+    yearTotals[acc.key]=weeks.reduce((s,w)=>{
+      const c=cm[`${acc.key}_${w.dateStr}`];
+      return s+(c&&c.checked?parseFloat(c.amount||0):0);
+    },0);
+  });
+
+  // All-time totals across all years
+  const allTimeTotals={};
+  ACCOUNTS.forEach(acc=>{
+    allTimeTotals[acc.key]=allWeeks.reduce((s,w)=>{
+      const c=cm[`${acc.key}_${w.dateStr}`];
+      return s+(c&&c.checked?parseFloat(c.amount||0):0);
+    },0);
+  });
+
+  const yrLabel=String(selectedYear);
+  const crystalYear=(yearTotals.crystal401k||0)+(yearTotals.crystalIRA||0)+(yearTotals.hsa||0)+(yearTotals.crystalBrok||0);
+  const aaronYear=(yearTotals.aaron401k||0)+(yearTotals.aaronIRA||0)+(yearTotals.aaronBrok||0);
+  const grandYear=crystalYear+aaronYear+(yearTotals.emergency||0);
+
+  const crystalAll=(allTimeTotals.crystal401k||0)+(allTimeTotals.crystalIRA||0)+(allTimeTotals.hsa||0)+(allTimeTotals.crystalBrok||0);
+  const aaronAll=(allTimeTotals.aaron401k||0)+(allTimeTotals.aaronIRA||0)+(allTimeTotals.aaronBrok||0);
+  const grandAll=crystalAll+aaronAll+(allTimeTotals.emergency||0);
+
   const crystalGoal=ACCOUNTS.filter(a=>a.owner==="Crystal").reduce((s,a)=>s+a.goal,0);
   const aaronGoal=ACCOUNTS.filter(a=>a.owner==="Aaron").reduce((s,a)=>s+a.goal,0);
   const grandGoal=crystalGoal+aaronGoal+ACCOUNTS.find(a=>a.key==="emergency").goal;
 
-  // Grand totals with rings
+  // Update progress title
+  const pt=document.getElementById("contrib-progress-title");
+  if(pt)pt.innerHTML=`${yrLabel} Progress <span>goal vs contributed this year</span>`;
+
+  // Grand totals — year + all-time
   document.getElementById("contrib-grand-totals").innerHTML=`
-    <div class="three-col">
+    <div class="three-col" style="margin-bottom:10px;">
       <div class="total-card" style="border-color:rgba(122,158,126,0.25)">
-        <div class="total-name">Crystal 2026</div>
+        <div class="total-name">Crystal ${yrLabel}</div>
         <div class="total-ring-wrap">
           <canvas id="ring-crystal-total" width="60" height="60"></canvas>
-          <div><div class="total-amount" style="color:var(--crystal-light)">${fmtMoney(crystalTotal)}</div><div class="total-sub">of ${fmtMoney(crystalGoal)} · ${(crystalTotal/crystalGoal*100).toFixed(1)}%</div></div>
+          <div>
+            <div class="total-amount" style="color:var(--crystal-light)">${fmtMoney(crystalYear)}</div>
+            <div class="total-sub">of ${fmtMoney(crystalGoal)} · ${(crystalYear/crystalGoal*100).toFixed(1)}%</div>
+            <div class="total-sub" style="margin-top:4px;color:var(--text3)">All time: ${fmtMoney(crystalAll)}</div>
+          </div>
         </div>
       </div>
       <div class="total-card" style="border-color:rgba(139,122,160,0.25)">
-        <div class="total-name">Aaron 2026</div>
+        <div class="total-name">Aaron ${yrLabel}</div>
         <div class="total-ring-wrap">
           <canvas id="ring-aaron-total" width="60" height="60"></canvas>
-          <div><div class="total-amount" style="color:var(--aaron-light)">${fmtMoney(aaronTotal)}</div><div class="total-sub">of ${fmtMoney(aaronGoal)} · ${(aaronTotal/aaronGoal*100).toFixed(1)}%</div></div>
+          <div>
+            <div class="total-amount" style="color:var(--aaron-light)">${fmtMoney(aaronYear)}</div>
+            <div class="total-sub">of ${fmtMoney(aaronGoal)} · ${(aaronYear/aaronGoal*100).toFixed(1)}%</div>
+            <div class="total-sub" style="margin-top:4px;color:var(--text3)">All time: ${fmtMoney(aaronAll)}</div>
+          </div>
         </div>
       </div>
       <div class="total-card grand">
-        <div class="total-name">Grand Total 2026</div>
+        <div class="total-name">Grand Total ${yrLabel}</div>
         <div class="total-ring-wrap">
           <canvas id="ring-grand-total" width="60" height="60"></canvas>
-          <div><div class="total-amount">${fmtMoney(grandTotal)}</div><div class="total-sub">of ${fmtMoney(grandGoal)} · ${(grandTotal/grandGoal*100).toFixed(1)}%</div></div>
+          <div>
+            <div class="total-amount">${fmtMoney(grandYear)}</div>
+            <div class="total-sub">of ${fmtMoney(grandGoal)} · ${(grandYear/grandGoal*100).toFixed(1)}%</div>
+            <div class="total-sub" style="margin-top:4px;color:var(--text3)">All time: ${fmtMoney(grandAll)}</div>
+          </div>
         </div>
       </div>
     </div>`;
+
   setTimeout(()=>{
     const rc=document.getElementById("ring-crystal-total"),ra=document.getElementById("ring-aaron-total"),rg=document.getElementById("ring-grand-total");
-    if(rc)drawRing(rc,crystalTotal/crystalGoal,"#7a9e7e",60);
-    if(ra)drawRing(ra,aaronTotal/aaronGoal,"#8b7aa0",60);
-    if(rg)drawRing(rg,grandTotal/grandGoal,"#c4a882",60);
+    if(rc)drawRing(rc,crystalYear/crystalGoal,"#7a9e7e",60);
+    if(ra)drawRing(ra,aaronYear/aaronGoal,"#8b7aa0",60);
+    if(rg)drawRing(rg,grandYear/grandGoal,"#c4a882",60);
   },0);
 
-  // Progress cards
+  // Progress cards — use selected year totals
   document.getElementById("contrib-progress-cards").innerHTML=ACCOUNTS.map(acc=>{
-    const contributed=totals[acc.key]||0,pct=acc.goal>0?contributed/acc.goal:0,remaining=Math.max(acc.goal-contributed,0);
+    const contributed=yearTotals[acc.key]||0,allTime=allTimeTotals[acc.key]||0;
+    const pct=acc.goal>0?contributed/acc.goal:0,remaining=Math.max(acc.goal-contributed,0);
     const oc=acc.owner==="Aaron"?"var(--aaron-light)":acc.owner==="Crystal"?"var(--crystal-light)":"var(--accent)";
     return`<div class="account-card" style="border-color:${acc.owner==="Aaron"?"rgba(139,122,160,0.2)":acc.owner==="Crystal"?"rgba(122,158,126,0.2)":"var(--border)"}">
       <div><div class="account-name-label" style="color:${oc}">${acc.label}</div><div class="account-owner-label">${acc.owner}</div></div>
       <div class="account-ring-wrap">
         <canvas width="70" height="70" id="ring-${acc.key}"></canvas>
-        <div class="account-nums"><div class="account-contributed" style="color:${oc}">${fmtMoney(contributed)}</div><div class="account-goal">of ${fmtMoney(acc.goal)}</div><div class="account-remaining">${fmtMoney(remaining)} left</div><div class="account-pct">${(pct*100).toFixed(1)}%</div></div>
+        <div class="account-nums">
+          <div class="account-contributed" style="color:${oc}">${fmtMoney(contributed)}</div>
+          <div class="account-goal">of ${fmtMoney(acc.goal)} ${yrLabel}</div>
+          <div class="account-remaining">${fmtMoney(remaining)} left</div>
+          <div class="account-pct">${(pct*100).toFixed(1)}%</div>
+          ${allTime!==contributed?`<div class="account-goal" style="margin-top:3px">All time: ${fmtMoney(allTime)}</div>`:""}
+        </div>
       </div>
     </div>`;
   }).join("");
-  ACCOUNTS.forEach(acc=>{const cv=document.getElementById("ring-"+acc.key);if(cv)drawRing(cv,(totals[acc.key]||0)/acc.goal,acc.color,70);});
+  ACCOUNTS.forEach(acc=>{const cv=document.getElementById("ring-"+acc.key);if(cv)drawRing(cv,(yearTotals[acc.key]||0)/acc.goal,acc.color,70);});
 
-  // Entry tables — ALL weeks shown for every account, behavior identical
+  // Entry tables — show weeks for the selected year
   document.getElementById("contrib-entry-tables").innerHTML=ACCOUNTS.map(acc=>{
     const rowsHTML=weeks.map(w=>{
       const k=`${acc.key}_${w.dateStr}`,c=cm[k]||{};
@@ -1119,26 +1191,42 @@ function propagateAmount(accountKey,afterDateStr,newAmount){
 }
 
 function refreshAccountTotal(key){
-  const total=contribCache.filter(c=>c.account_key===key&&c.checked).reduce((s,c)=>s+parseFloat(c.amount||0),0);
+  const selectedYear=getSelectedContribYear();
+  const weeks=generateWeeksForYear(selectedYear);
+  const weekDates=new Set(weeks.map(w=>w.dateStr));
+  const total=contribCache.filter(c=>c.account_key===key&&c.checked&&weekDates.has(c.week_date)).reduce((s,c)=>s+parseFloat(c.amount||0),0);
   const el=document.getElementById("total-"+key);if(el)el.textContent=fmtMoney(total);
-  // Update ring
   const acc=ACCOUNTS.find(a=>a.key===key);
   const cv=document.getElementById("ring-"+key);
   if(cv&&acc)drawRing(cv,total/acc.goal,acc.color,70);
 }
 
 function refreshGrandTotals(){
-  const totals={};
-  ACCOUNTS.forEach(acc=>{totals[acc.key]=contribCache.filter(c=>c.account_key===acc.key&&c.checked).reduce((s,c)=>s+parseFloat(c.amount||0),0);});
-  const crystalTotal=(totals.crystal401k||0)+(totals.crystalIRA||0)+(totals.hsa||0)+(totals.crystalBrok||0);
-  const aaronTotal=(totals.aaron401k||0)+(totals.aaronIRA||0)+(totals.aaronBrok||0);
-  const grandTotal=crystalTotal+aaronTotal+(totals.emergency||0);
+  const selectedYear=getSelectedContribYear();
+  const weeks=generateWeeksForYear(selectedYear);
+  const allWeeks=[...generateWeeksForYear(2025),...generateWeeksForYear(2026)];
+  const yearDates=new Set(weeks.map(w=>w.dateStr));
+  const allDates=new Set(allWeeks.map(w=>w.dateStr));
+
+  const yearTotals={},allTimeTotals={};
+  ACCOUNTS.forEach(acc=>{
+    yearTotals[acc.key]=contribCache.filter(c=>c.account_key===acc.key&&c.checked&&yearDates.has(c.week_date)).reduce((s,c)=>s+parseFloat(c.amount||0),0);
+    allTimeTotals[acc.key]=contribCache.filter(c=>c.account_key===acc.key&&c.checked&&allDates.has(c.week_date)).reduce((s,c)=>s+parseFloat(c.amount||0),0);
+  });
+
+  const yrLabel=String(selectedYear);
+  const crystalYear=(yearTotals.crystal401k||0)+(yearTotals.crystalIRA||0)+(yearTotals.hsa||0)+(yearTotals.crystalBrok||0);
+  const aaronYear=(yearTotals.aaron401k||0)+(yearTotals.aaronIRA||0)+(yearTotals.aaronBrok||0);
+  const grandYear=crystalYear+aaronYear+(yearTotals.emergency||0);
+  const crystalAll=(allTimeTotals.crystal401k||0)+(allTimeTotals.crystalIRA||0)+(allTimeTotals.hsa||0)+(allTimeTotals.crystalBrok||0);
+  const aaronAll=(allTimeTotals.aaron401k||0)+(allTimeTotals.aaronIRA||0)+(allTimeTotals.aaronBrok||0);
+  const grandAll=crystalAll+aaronAll+(allTimeTotals.emergency||0);
   const crystalGoal=ACCOUNTS.filter(a=>a.owner==="Crystal").reduce((s,a)=>s+a.goal,0);
   const aaronGoal=ACCOUNTS.filter(a=>a.owner==="Aaron").reduce((s,a)=>s+a.goal,0);
   const grandGoal=crystalGoal+aaronGoal+ACCOUNTS.find(a=>a.key==="emergency").goal;
-  // Update total card amounts
-  [["crystal",crystalTotal,crystalGoal,"#7a9e7e"],["aaron",aaronTotal,aaronGoal,"#8b7aa0"],["grand",grandTotal,grandGoal,"#c4a882"]].forEach(([k,tot,goal,col])=>{
-    const cv=document.getElementById(`ring-${k}-total`);if(cv)drawRing(cv,tot/goal,col,60);
+
+  [["ring-crystal-total",crystalYear,crystalGoal,"#7a9e7e"],["ring-aaron-total",aaronYear,aaronGoal,"#8b7aa0"],["ring-grand-total",grandYear,grandGoal,"#c4a882"]].forEach(([id,tot,goal,col])=>{
+    const cv=document.getElementById(id);if(cv)drawRing(cv,tot/goal,col,60);
   });
 }
 
