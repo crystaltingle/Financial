@@ -422,8 +422,17 @@ const SPEND_COLORS=["#c47a6a","#c4906a","#c4a56a","#b89060","#a87858","#c46a7a",
 
 // ── DATE UTILS ────────────────────────────────────────────────────────────────
 function getWeekStart(d){const dt=new Date(d+"T12:00:00"),day=dt.getDay(),diff=dt.getDate()-day+(day===0?-6:1);return new Date(new Date(d+"T12:00:00").setDate(diff)).toISOString().slice(0,10);}
-function getWeekLabel(d){const dt=new Date(d+"T12:00:00"),day=dt.getDay(),diff=dt.getDate()-day+(day===0?-6:1),mon=new Date(new Date(d+"T12:00:00").setDate(diff)),sun=new Date(mon);sun.setDate(sun.getDate()+6);const fmt=x=>x.toLocaleDateString("en-US",{month:"short",day:"numeric"}),s=new Date(mon.getFullYear(),0,1),wn=Math.ceil(((mon-s)/86400000+s.getDay()+1)/7);return`Week ${String(wn).padStart(2,"0")} (${fmt(mon)} - ${fmt(sun)})`;}
-function getMonthLabel(d){return new Date(d+"T12:00:00").toLocaleDateString("en-US",{month:"long",year:"numeric"});}
+function getWeekLabel(d){
+  const dt=new Date(d+"T12:00:00"),day=dt.getDay(),diff=dt.getDate()-day+(day===0?-6:1);
+  const mon=new Date(new Date(d+"T12:00:00").setDate(diff)),sun=new Date(mon);
+  sun.setDate(sun.getDate()+6);
+  const fmt=x=>x.toLocaleDateString("en-US",{month:"short",day:"numeric"});
+  // Use the YEAR of the actual date, not the Monday's year
+  const yr=dt.getFullYear();
+  const s=new Date(yr,0,1);
+  const wn=Math.ceil(((mon-s)/86400000+s.getDay()+1)/7);
+  return`Week ${String(wn).padStart(2,"0")} ${yr} (${fmt(mon)} - ${fmt(sun)})`;
+}function getMonthLabel(d){return new Date(d+"T12:00:00").toLocaleDateString("en-US",{month:"long",year:"numeric"});}
 function getYear(d){return new Date(d+"T12:00:00").getFullYear();}
 function fmtDate(d){return new Date(d+"T12:00:00").toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"});}
 function fmtMoney(n){return"$"+Math.abs(n).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g,",");}
@@ -484,7 +493,18 @@ function populateAllFilters(){
   const weeks=[...new Set(txnCache.map(t=>t.week))].filter(Boolean).sort((a,b)=>b.localeCompare(a));
   [["d-year","t-year"],["d-month","t-month"],["d-week","t-week"]].forEach(([di,ti],idx)=>{
     const opts=idx===0?years:idx===1?months:weeks,def=idx===0?"All Years":idx===1?"All Months":"All Weeks";
-    [di,ti].forEach(id=>{const el=document.getElementById(id);if(!el)return;const cur=el.value;el.innerHTML=`<option value="all">${def}</option>`;opts.forEach(o=>el.innerHTML+=`<option value="${o}">${o}</option>`);if(cur)el.value=cur;});
+    [di,ti].forEach(id=>{
+      const el=document.getElementById(id);if(!el)return;
+      const cur=el.value;
+      el.innerHTML=`<option value="all">${def}</option>`;
+      opts.forEach(o=>el.innerHTML+=`<option value="${o}">${o}</option>`);
+      // Auto-default year filter to current year on first load (cur is still "all")
+      if(idx===0&&cur==="all"&&years.includes(thisYear())){
+        el.value=String(thisYear());
+      }else if(cur){
+        el.value=cur;
+      }
+    });
   });
 }
 
@@ -594,16 +614,32 @@ async function addTransaction(){
 
 // ── DASHBOARD ─────────────────────────────────────────────────────────────────
 function renderDashboard(){
-  const filtered=applyFilters("d"),total=filtered.reduce((s,t)=>s+parseFloat(t.amount),0);
+  const filtered=applyFilters("d");
+  const filteredTotal=filtered.reduce((s,t)=>s+parseFloat(t.amount),0);
+  const allTimeTotal=txnCache.reduce((s,t)=>s+parseFloat(t.amount),0);
   const ty=thisYear(),tyT=txnCache.filter(t=>t.year===ty),tyTot=tyT.reduce((s,t)=>s+parseFloat(t.amount),0);
   const tm=thisMonthLabel(),tmT=txnCache.filter(t=>t.month===tm),tmTot=tmT.reduce((s,t)=>s+parseFloat(t.amount),0);
   const lm=lastMonthLabel(),lmT=txnCache.filter(t=>t.month===lm),lmTot=lmT.reduce((s,t)=>s+parseFloat(t.amount),0);
+
   document.getElementById("dash-primary-stats").innerHTML=`
     <div class="stat-tile"><div class="stat-label">This Year</div><div class="stat-value">${fmtMoney(tyTot)}</div><div class="stat-sub">${tyT.length} transactions</div></div>
     <div class="stat-tile"><div class="stat-label">This Month</div><div class="stat-value v2">${fmtMoney(tmTot)}</div><div class="stat-sub">${tmT.length} transactions</div></div>
     <div class="stat-tile"><div class="stat-label">Last Month</div><div class="stat-value v3">${fmtMoney(lmTot)}</div><div class="stat-sub">${lmT.length} transactions</div></div>`;
-  document.getElementById("dash-running-wrap").innerHTML=`<div class="stat-tile dim" style="display:inline-flex;gap:14px;align-items:center;padding:9px 14px;border-radius:8px;"><span style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:0.08em;">Running Total (filtered)</span><span style="font-family:var(--font-display);font-size:17px;color:var(--text2)">${fmtMoney(total)}</span><span style="font-size:10px;color:var(--text3)">${filtered.length} txns</span></div>`;
-  // ALL categories, no slice
+
+  document.getElementById("dash-running-wrap").innerHTML=`
+    <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:2px;">
+      <div class="stat-tile dim" style="display:inline-flex;gap:14px;align-items:center;padding:9px 14px;border-radius:8px;flex:1;min-width:160px;">
+        <span style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:0.08em;">All Time</span>
+        <span style="font-family:var(--font-display);font-size:17px;color:var(--text2)">${fmtMoney(allTimeTotal)}</span>
+        <span style="font-size:10px;color:var(--text3)">${txnCache.length} txns</span>
+      </div>
+      <div class="stat-tile dim" style="display:inline-flex;gap:14px;align-items:center;padding:9px 14px;border-radius:8px;flex:1;min-width:160px;">
+        <span style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:0.08em;">Filtered Total</span>
+        <span style="font-family:var(--font-display);font-size:17px;color:var(--text2)">${fmtMoney(filteredTotal)}</span>
+        <span style="font-size:10px;color:var(--text3)">${filtered.length} txns</span>
+      </div>
+    </div>`;
+
   const cats=getCatTotals(filtered).sort((a,b)=>b.total-a.total);
   const maxC=cats[0]?.total||1;
   document.getElementById("category-bars").innerHTML=cats.map((c,i)=>`<div class="bar-row"><div class="bar-label" title="${c.cat}">${c.cat}</div><div class="bar-track"><div class="bar-fill" style="width:${(c.total/maxC*100).toFixed(1)}%;background:${SPEND_COLORS[i%SPEND_COLORS.length]}"></div></div><div class="bar-amount">${fmtMoney(c.total)}</div></div>`).join("")||'<div class="empty">No data</div>';
