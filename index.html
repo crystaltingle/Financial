@@ -375,14 +375,28 @@ tr:hover td{background:rgba(255,255,255,0.015);}
 
 <!-- SETTINGS -->
 <div id="view-settings" class="view">
-  <div class="page-header"><h1>Settings</h1><p>Manage spending categories</p></div>
-  <div class="card" style="max-width:520px;">
-    <div class="card-title">Spending Categories</div>
-    <div style="display:flex;gap:8px;margin-bottom:14px;">
-      <input type="text" id="new-cat-input" placeholder="e.g. 🎮 Gaming" style="flex:1;">
-      <button class="btn btn-primary btn-sm" onclick="addCategory()">+ Add</button>
+  <div class="page-header"><h1>Settings</h1><p>Manage categories and contribution goals</p></div>
+  <div class="two-col section">
+    <div class="card">
+      <div class="card-title">Spending Categories</div>
+      <div style="display:flex;gap:8px;margin-bottom:14px;">
+        <input type="text" id="new-cat-input" placeholder="e.g. 🎮 Gaming" style="flex:1;">
+        <button class="btn btn-primary btn-sm" onclick="addCategory()">+ Add</button>
+      </div>
+      <div id="cat-list"></div>
     </div>
-    <div id="cat-list"></div>
+    <div class="card">
+      <div class="card-title">Contribution Goals</div>
+      <div style="display:flex;gap:8px;margin-bottom:14px;align-items:center;">
+        <label style="font-size:11px;color:var(--text2);white-space:nowrap;">Year</label>
+        <select id="goals-year" onchange="renderGoalsSettings()" style="width:auto;padding:6px 10px;font-size:13px;">
+          <option value="2026">2026</option>
+          <option value="2025">2025</option>
+        </select>
+      </div>
+      <div id="goals-list"></div>
+      <button class="btn btn-primary" style="margin-top:14px;width:100%;" onclick="saveGoals()">Save Goals</button>
+    </div>
   </div>
 </div>
 
@@ -603,6 +617,57 @@ function resetCombo(name){
   if(ti)ti.value="";if(hi)hi.value="";
   const list=document.getElementById("combo-list-"+name);if(list)list.classList.remove("open");
 }
+// ── CONTRIBUTION GOALS ────────────────────────────────────────────────────────
+const DEFAULT_GOALS={
+  2025:{aaron401k:23000,aaronIRA:7000,aaronBrok:15000,crystal401k:23000,crystalIRA:7000,hsa:8000,crystalBrok:8000,emergency:30000},
+  2026:{aaron401k:24500,aaronIRA:7500,aaronBrok:15000,crystal401k:24500,crystalIRA:7500,hsa:8000,crystalBrok:8000,emergency:30000}
+};
+
+function loadGoals(year){
+  try{
+    const stored=JSON.parse(localStorage.getItem("contrib_goals")||"{}");
+    return stored[year]||DEFAULT_GOALS[year]||DEFAULT_GOALS[2026];
+  }catch{return DEFAULT_GOALS[year]||DEFAULT_GOALS[2026];}
+}
+
+function saveGoals(){
+  const year=parseInt(document.getElementById("goals-year")?.value||"2026");
+  const goals={};
+  ACCOUNTS.forEach(acc=>{
+    const inp=document.getElementById(`goal-${acc.key}`);
+    if(inp)goals[acc.key]=parseFloat(inp.value)||0;
+  });
+  try{
+    const stored=JSON.parse(localStorage.getItem("contrib_goals")||"{}");
+    stored[year]=goals;
+    localStorage.setItem("contrib_goals",JSON.stringify(stored));
+  }catch{}
+  showToast(`${year} goals saved ✓`);
+  // Re-render contributions if that tab is open
+  const av=document.querySelector(".view.active")?.id;
+  if(av==="view-contributions")renderContributions();
+}
+
+function getGoalsForYear(year){return loadGoals(year);}
+
+function renderGoalsSettings(){
+  const year=parseInt(document.getElementById("goals-year")?.value||"2026");
+  const goals=loadGoals(year);
+  const el=document.getElementById("goals-list");if(!el)return;
+  el.innerHTML=ACCOUNTS.map(acc=>{
+    const oc=acc.owner==="Aaron"?"var(--aaron-light)":acc.owner==="Crystal"?"var(--crystal-light)":"var(--accent)";
+    return`<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid rgba(58,53,48,0.4);">
+      <span style="flex:1;font-size:12px;color:${oc}">${acc.label}</span>
+      <span style="font-size:10px;color:var(--text3);width:50px;text-align:right;">${acc.owner}</span>
+      <div style="position:relative;width:110px;">
+        <span style="position:absolute;left:8px;top:50%;transform:translateY(-50%);color:var(--text3);font-size:12px;">$</span>
+        <input type="number" id="goal-${acc.key}" value="${goals[acc.key]||0}" min="0" step="100"
+          style="width:100%;padding:5px 8px 5px 18px;font-size:12px;text-align:right;">
+      </div>
+    </div>`;
+  }).join("");
+}
+
 function renderSettings(){
   CATEGORIES=loadCategories();
   const el=document.getElementById("cat-list");
@@ -612,6 +677,7 @@ function renderSettings(){
       <span>${c}</span>
       <button class="btn-danger btn-sm" onclick="removeCategory(${i})">Remove</button>
     </div>`).join("")||'<div class="empty">No categories</div>';
+  renderGoalsSettings();
 }
 
 function addCategory(){
@@ -1011,9 +1077,11 @@ function renderContributions(){
   const aaronAll=(allTimeTotals.aaron401k||0)+(allTimeTotals.aaronIRA||0)+(allTimeTotals.aaronBrok||0);
   const grandAll=crystalAll+aaronAll+(allTimeTotals.emergency||0);
 
-  const crystalGoal=ACCOUNTS.filter(a=>a.owner==="Crystal").reduce((s,a)=>s+a.goal,0);
-  const aaronGoal=ACCOUNTS.filter(a=>a.owner==="Aaron").reduce((s,a)=>s+a.goal,0);
-  const grandGoal=crystalGoal+aaronGoal+ACCOUNTS.find(a=>a.key==="emergency").goal;
+  // Use per-year goals from settings
+  const goals=getGoalsForYear(selectedYear);
+  const crystalGoal=(goals.crystal401k||0)+(goals.crystalIRA||0)+(goals.hsa||0)+(goals.crystalBrok||0);
+  const aaronGoal=(goals.aaron401k||0)+(goals.aaronIRA||0)+(goals.aaronBrok||0);
+  const grandGoal=crystalGoal+aaronGoal+(goals.emergency||0);
 
   // Update progress title
   const pt=document.getElementById("contrib-progress-title");
@@ -1067,7 +1135,8 @@ function renderContributions(){
   // Progress cards — use selected year totals
   document.getElementById("contrib-progress-cards").innerHTML=ACCOUNTS.map(acc=>{
     const contributed=yearTotals[acc.key]||0,allTime=allTimeTotals[acc.key]||0;
-    const pct=acc.goal>0?contributed/acc.goal:0,remaining=Math.max(acc.goal-contributed,0);
+    const accGoal=goals[acc.key]||0;
+    const pct=accGoal>0?contributed/accGoal:0,remaining=Math.max(accGoal-contributed,0);
     const oc=acc.owner==="Aaron"?"var(--aaron-light)":acc.owner==="Crystal"?"var(--crystal-light)":"var(--accent)";
     return`<div class="account-card" style="border-color:${acc.owner==="Aaron"?"rgba(139,122,160,0.2)":acc.owner==="Crystal"?"rgba(122,158,126,0.2)":"var(--border)"}">
       <div><div class="account-name-label" style="color:${oc}">${acc.label}</div><div class="account-owner-label">${acc.owner}</div></div>
@@ -1075,7 +1144,7 @@ function renderContributions(){
         <canvas width="70" height="70" id="ring-${acc.key}"></canvas>
         <div class="account-nums">
           <div class="account-contributed" style="color:${oc}">${fmtMoney(contributed)}</div>
-          <div class="account-goal">of ${fmtMoney(acc.goal)} ${yrLabel}</div>
+          <div class="account-goal">of ${fmtMoney(accGoal)} ${yrLabel}</div>
           <div class="account-remaining">${fmtMoney(remaining)} left</div>
           <div class="account-pct">${(pct*100).toFixed(1)}%</div>
           ${allTime!==contributed?`<div class="account-goal" style="margin-top:3px">All time: ${fmtMoney(allTime)}</div>`:""}
@@ -1083,7 +1152,7 @@ function renderContributions(){
       </div>
     </div>`;
   }).join("");
-  ACCOUNTS.forEach(acc=>{const cv=document.getElementById("ring-"+acc.key);if(cv)drawRing(cv,(yearTotals[acc.key]||0)/acc.goal,acc.color,70);});
+  ACCOUNTS.forEach(acc=>{const cv=document.getElementById("ring-"+acc.key);if(cv)drawRing(cv,(yearTotals[acc.key]||0)/(goals[acc.key]||1),acc.color,70);});
 
   // Entry tables — show weeks for the selected year
   document.getElementById("contrib-entry-tables").innerHTML=ACCOUNTS.map(acc=>{
@@ -1221,9 +1290,10 @@ function refreshGrandTotals(){
   const crystalAll=(allTimeTotals.crystal401k||0)+(allTimeTotals.crystalIRA||0)+(allTimeTotals.hsa||0)+(allTimeTotals.crystalBrok||0);
   const aaronAll=(allTimeTotals.aaron401k||0)+(allTimeTotals.aaronIRA||0)+(allTimeTotals.aaronBrok||0);
   const grandAll=crystalAll+aaronAll+(allTimeTotals.emergency||0);
-  const crystalGoal=ACCOUNTS.filter(a=>a.owner==="Crystal").reduce((s,a)=>s+a.goal,0);
-  const aaronGoal=ACCOUNTS.filter(a=>a.owner==="Aaron").reduce((s,a)=>s+a.goal,0);
-  const grandGoal=crystalGoal+aaronGoal+ACCOUNTS.find(a=>a.key==="emergency").goal;
+  const goals=getGoalsForYear(selectedYear);
+  const crystalGoal=(goals.crystal401k||0)+(goals.crystalIRA||0)+(goals.hsa||0)+(goals.crystalBrok||0);
+  const aaronGoal=(goals.aaron401k||0)+(goals.aaronIRA||0)+(goals.aaronBrok||0);
+  const grandGoal=crystalGoal+aaronGoal+(goals.emergency||0);
 
   [["ring-crystal-total",crystalYear,crystalGoal,"#7a9e7e"],["ring-aaron-total",aaronYear,aaronGoal,"#8b7aa0"],["ring-grand-total",grandYear,grandGoal,"#c4a882"]].forEach(([id,tot,goal,col])=>{
     const cv=document.getElementById(id);if(cv)drawRing(cv,tot/goal,col,60);
