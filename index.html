@@ -222,7 +222,7 @@ tr:hover td{background:rgba(255,255,255,0.015);}
     <div class="card">
       <div class="card-title">Spending by Category</div>
       <div class="filter-row">
-        <select id="d-year" onchange="renderDashboard()"><option value="all">All Years</option></select>
+        <select id="d-year" onchange="updateDependentFilters('d');renderDashboard()"><option value="all">All Years</option></select>
         <select id="d-month" onchange="renderDashboard()"><option value="all">All Months</option></select>
         <select id="d-week" onchange="renderDashboard()"><option value="all">All Weeks</option></select>
         <select id="d-who" onchange="renderDashboard()"><option value="all">All</option><option value="Crystal">Crystal</option><option value="Aaron">Aaron</option><option value="Both">Both</option></select>
@@ -288,7 +288,7 @@ tr:hover td{background:rgba(255,255,255,0.015);}
   <div class="page-header"><div class="header-actions"><div><h1>Transactions</h1><p>Tap any cell to edit inline</p></div><button class="btn btn-secondary" onclick="exportCSV()">↓ Export CSV</button></div></div>
   <div class="card">
     <div class="filter-row">
-      <select id="t-year" onchange="renderTransactions()"><option value="all">All Years</option></select>
+      <select id="t-year" onchange="updateDependentFilters('t');renderTransactions()"><option value="all">All Years</option></select>
       <select id="t-month" onchange="renderTransactions()"><option value="all">All Months</option></select>
       <select id="t-week" onchange="renderTransactions()"><option value="all">All Weeks</option></select>
       <select id="t-who" onchange="renderTransactions()"><option value="all">All</option><option value="Crystal">Crystal</option><option value="Aaron">Aaron</option><option value="Both">Both</option></select>
@@ -489,23 +489,54 @@ function refreshCategoryDropdowns(){
 
 function populateAllFilters(){
   const years=[...new Set(txnCache.map(t=>t.year))].filter(Boolean).sort((a,b)=>b-a);
-  const months=[...new Set(txnCache.map(t=>t.month))].filter(Boolean).sort((a,b)=>new Date(b)-new Date(a));
-  const weeks=[...new Set(txnCache.map(t=>t.week))].filter(Boolean).sort((a,b)=>b.localeCompare(a));
-  [["d-year","t-year"],["d-month","t-month"],["d-week","t-week"]].forEach(([di,ti],idx)=>{
-    const opts=idx===0?years:idx===1?months:weeks,def=idx===0?"All Years":idx===1?"All Months":"All Weeks";
-    [di,ti].forEach(id=>{
-      const el=document.getElementById(id);if(!el)return;
-      const cur=el.value;
-      el.innerHTML=`<option value="all">${def}</option>`;
-      opts.forEach(o=>el.innerHTML+=`<option value="${o}">${o}</option>`);
-      // Auto-default year filter to current year on first load (cur is still "all")
-      if(idx===0&&cur==="all"&&years.includes(thisYear())){
-        el.value=String(thisYear());
-      }else if(cur){
-        el.value=cur;
-      }
-    });
+
+  // Year dropdowns — just populate, preserve current value
+  ["d-year","t-year"].forEach(id=>{
+    const el=document.getElementById(id);if(!el)return;
+    const cur=el.value;
+    el.innerHTML=`<option value="all">All Years</option>`;
+    years.forEach(y=>el.innerHTML+=`<option value="${y}">${y}</option>`);
+    // Auto-default to current year on very first load
+    if(cur==="all"&&years.includes(thisYear())){el.value=String(thisYear());}
+    else if(cur){el.value=cur;}
   });
+
+  updateDependentFilters("d");
+  updateDependentFilters("t");
+}
+
+// Rebuild month + week filters based on what's actually in the selected year
+function updateDependentFilters(prefix){
+  const yearEl=document.getElementById(prefix+"-year");
+  const selectedYear=yearEl?.value||"all";
+
+  // Filter transactions to selected year
+  const yearFiltered=selectedYear==="all"
+    ?txnCache
+    :txnCache.filter(t=>String(t.year)===String(selectedYear));
+
+  const months=[...new Set(yearFiltered.map(t=>t.month))].filter(Boolean).sort((a,b)=>new Date(b)-new Date(a));
+  const weeks=[...new Set(yearFiltered.map(t=>t.week))].filter(Boolean).sort((a,b)=>b.localeCompare(a));
+
+  const monthEl=document.getElementById(prefix+"-month");
+  const weekEl=document.getElementById(prefix+"-week");
+
+  if(monthEl){
+    const curM=monthEl.value;
+    monthEl.innerHTML=`<option value="all">All Months</option>`;
+    months.forEach(m=>monthEl.innerHTML+=`<option value="${m}">${m}</option>`);
+    // Keep selection if still valid, otherwise reset
+    if(curM&&months.includes(curM))monthEl.value=curM;
+    else monthEl.value="all";
+  }
+
+  if(weekEl){
+    const curW=weekEl.value;
+    weekEl.innerHTML=`<option value="all">All Weeks</option>`;
+    weeks.forEach(w=>weekEl.innerHTML+=`<option value="${w}">${w}</option>`);
+    if(curW&&weeks.includes(curW))weekEl.value=curW;
+    else weekEl.value="all";
+  }
 }
 
 function applyFilters(p){
