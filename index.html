@@ -200,6 +200,24 @@ td.date-col,th.date-col{width:110px;white-space:nowrap;}
 .cat-item:last-child{border-bottom:none;}
 .cat-item span{flex:1;}
 
+/* FITNESS */
+.day-row{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid rgba(58,53,48,0.35);}
+.day-row:last-child{border-bottom:none;}
+.day-label{width:80px;font-size:12px;color:var(--text2);flex-shrink:0;}
+.day-check{width:22px;height:22px;cursor:pointer;accent-color:var(--crystal);flex-shrink:0;}
+.day-type{flex:1;min-width:0;}
+.day-type input{padding:5px 8px;font-size:12px;width:100%;}
+.day-note{flex:1;min-width:0;}
+.day-note input{padding:5px 8px;font-size:12px;width:100%;}
+.earned-badge{display:inline-flex;align-items:center;gap:6px;background:rgba(122,158,126,0.15);border:1px solid rgba(122,158,126,0.3);color:var(--crystal-light);border-radius:6px;padding:6px 12px;font-size:13px;font-family:var(--font-mono);}
+.earned-badge.aaron{background:rgba(139,122,160,0.15);border-color:rgba(139,122,160,0.3);color:var(--aaron-light);}
+.fitness-goal-row{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid rgba(58,53,48,0.35);}
+.fitness-goal-row:last-child{border-bottom:none;}
+.fitness-goal-label{font-size:12px;color:var(--text2);flex:1;}
+.fitness-goal-input{width:90px;padding:5px 8px;font-size:12px;}
+.progress-bar-wrap{background:var(--surface2);border-radius:4px;height:10px;overflow:hidden;margin-top:4px;}
+.progress-bar-fill{height:100%;border-radius:4px;transition:width 0.4s ease;}
+
 /* COMBOBOX */
 .combo-wrap{position:relative;width:100%;}
 .combo-input{width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:8px 10px;font-family:var(--font-mono);font-size:13px;outline:none;transition:border-color 0.15s;}
@@ -229,6 +247,7 @@ td.date-col,th.date-col{width:110px;white-space:nowrap;}
     <button class="nav-tab" onclick="showView('hobbies')">Hobbies</button>
     <button class="nav-tab" onclick="showView('travel')">Travel</button>
     <button class="nav-tab" onclick="showView('settings')">Settings</button>
+    <button class="nav-tab" onclick="showView('fitness')">💪 Fitness</button>
   </div>
   <div class="sync-dot"><div class="dot" id="sync-dot"></div><span id="sync-label">…</span></div>
 </nav>
@@ -465,6 +484,50 @@ td.date-col,th.date-col{width:110px;white-space:nowrap;}
     </div>
   </div>
 </div>
+<!-- FITNESS -->
+<div id="view-fitness" class="view">
+  <div class="page-header"><h1>💪 Fitness Goals</h1><p>Track workouts and earn splurge money</p></div>
+
+  <!-- Goals setup -->
+  <div class="two-col section">
+    <div class="card">
+      <div class="card-title">Crystal's Goals</div>
+      <div id="crystal-goals-form"></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Aaron's Goals</div>
+      <div id="aaron-goals-form"></div>
+    </div>
+  </div>
+
+  <!-- Week selector -->
+  <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap;">
+    <button class="btn btn-secondary btn-sm" onclick="fitnessPrevWeek()">← Prev</button>
+    <span id="fitness-week-label" style="font-family:var(--font-display);font-size:16px;"></span>
+    <button class="btn btn-secondary btn-sm" onclick="fitnessNextWeek()">Next →</button>
+    <button class="btn btn-secondary btn-sm" onclick="fitnessThisWeek()">This Week</button>
+  </div>
+
+  <!-- Weekly log -->
+  <div class="two-col section">
+    <div class="card">
+      <div class="card-title">Crystal — This Week</div>
+      <div id="crystal-week-log"></div>
+      <div id="crystal-week-summary" style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border);"></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Aaron — This Week</div>
+      <div id="aaron-week-log"></div>
+      <div id="aaron-week-summary" style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border);"></div>
+    </div>
+  </div>
+
+  <!-- Running totals -->
+  <div class="card section">
+    <div class="card-title">Earned Splurge Money — All Time</div>
+    <div class="two-col" id="fitness-totals"></div>
+  </div>
+</div>
 </main>
 <div id="toast"></div>
 
@@ -571,13 +634,14 @@ async function showView(id){
   document.querySelectorAll(".nav-tab").forEach(t=>t.classList.remove("active"));
   document.getElementById("view-"+id).classList.add("active");
   const tabs=document.querySelectorAll(".nav-tab");
-  ["dashboard","add","transactions","import","contributions","hobbies","travel","settings"].forEach((n,i)=>{if(n===id)tabs[i].classList.add("active");});
+  ["dashboard","add","transactions","import","contributions","hobbies","travel","settings","fitness"].forEach((n,i)=>{if(n===id)tabs[i].classList.add("active");});
   await loadAllData();
   if(id==="dashboard")renderDashboard();
   if(id==="transactions")renderTransactions();
   if(id==="contributions")renderContributions();
   if(id==="hobbies")renderHobbies();
   if(id==="travel")renderTravel();
+  if(id==="fitness")renderFitness();
   if(id==="settings")renderSettings();
   if(id==="import"&&importRows.length)renderReviewRows();
 }
@@ -1240,6 +1304,181 @@ function refreshGrandTotals(){
   const grandGoal=crystalGoal+aaronGoal+(goals.emergency||0);
   [["ring-crystal-total",crystalYear,crystalGoal,"#7a9e7e"],["ring-aaron-total",aaronYear,aaronGoal,"#8b7aa0"],["ring-grand-total",grandYear,grandGoal,"#c4a882"]].forEach(([id,tot,goal,col])=>{const cv=document.getElementById(id);if(cv)drawRing(cv,goal>0?tot/goal:0,col,60);});
 }
+
+// ── FITNESS ───────────────────────────────────────────────────────────────────
+// All stored in localStorage — standalone, not connected to Supabase
+const DAYS=["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"];
+
+function loadFitnessGoals(person){
+  try{return JSON.parse(localStorage.getItem(`fitness_goals_${person}`)||"null")||getDefaultFitnessGoals();}catch{return getDefaultFitnessGoals();}
+}
+function saveFitnessGoals(person,goals){localStorage.setItem(`fitness_goals_${person}`,JSON.stringify(goals));}
+function getDefaultFitnessGoals(){
+  return{targetDays:4,rewardPerDay:5,rewardPerWeek:10,bonusThreshold:5,bonusAmount:15};
+}
+function loadFitnessWeek(person,weekKey){
+  try{return JSON.parse(localStorage.getItem(`fitness_week_${person}_${weekKey}`)||"null")||{};}catch{return{};}
+}
+function saveFitnessWeek(person,weekKey,data){localStorage.setItem(`fitness_week_${person}_${weekKey}`,JSON.stringify(data));}
+
+let fitnessWeekOffset=0;
+
+function getFitnessWeekKey(offset){
+  const now=new Date(),day=now.getDay(),diff=now.getDate()-day+(day===0?-6:1);
+  const mon=new Date(now);mon.setDate(diff+offset*7);
+  return mon.toISOString().slice(0,10);
+}
+function getFitnessWeekLabel(weekKey){
+  const mon=new Date(weekKey+"T12:00:00"),sun=new Date(mon);sun.setDate(sun.getDate()+6);
+  const fmt=d=>d.toLocaleDateString("en-US",{month:"short",day:"numeric"});
+  return`${fmt(mon)} – ${fmt(sun)}`;
+}
+function getWeekDates(weekKey){
+  const dates=[];
+  for(let i=0;i<7;i++){const d=new Date(weekKey+"T12:00:00");d.setDate(d.getDate()+i);dates.push(d.toISOString().slice(0,10));}
+  return dates;
+}
+
+function calcEarned(person,weekKey){
+  const goals=loadFitnessGoals(person),data=loadFitnessWeek(person,weekKey);
+  const checked=DAYS.filter((_,i)=>data[`day_${i}_checked`]).length;
+  if(checked===0)return{checked,earned:0,metGoal:false,gotBonus:false};
+  const earned=checked*goals.rewardPerDay;
+  const metGoal=checked>=goals.targetDays;
+  const gotBonus=checked>=goals.bonusThreshold;
+  const total=earned+(metGoal?goals.rewardPerWeek:0)+(gotBonus&&goals.bonusThreshold>goals.targetDays?goals.bonusAmount:0);
+  return{checked,earned:total,metGoal,gotBonus};
+}
+
+function calcAllTimeEarned(person){
+  let total=0;
+  // scan all localStorage keys
+  for(let i=0;i<localStorage.length;i++){
+    const k=localStorage.key(i);
+    if(k&&k.startsWith(`fitness_week_${person}_`)){
+      const weekKey=k.replace(`fitness_week_${person}_`,"");
+      total+=calcEarned(person,weekKey).earned;
+    }
+  }
+  return total;
+}
+
+function renderFitness(){
+  const weekKey=getFitnessWeekKey(fitnessWeekOffset);
+  document.getElementById("fitness-week-label").textContent=getFitnessWeekLabel(weekKey);
+  renderFitnessGoalsForm("Crystal","crystal");
+  renderFitnessGoalsForm("Aaron","aaron");
+  renderFitnessWeekLog("Crystal","crystal",weekKey);
+  renderFitnessWeekLog("Aaron","aaron",weekKey);
+  renderFitnessTotals();
+}
+
+function renderFitnessGoalsForm(name,person){
+  const goals=loadFitnessGoals(person);
+  const color=person==="crystal"?"var(--crystal-light)":"var(--aaron-light)";
+  const el=document.getElementById(`${person}-goals-form`);if(!el)return;
+  el.innerHTML=`
+    <div class="fitness-goal-row">
+      <span class="fitness-goal-label">Workout days goal per week</span>
+      <input class="fitness-goal-input" type="number" min="1" max="7" value="${goals.targetDays}" id="goal-${person}-targetDays" oninput="saveFitnessGoalField('${person}','targetDays',this.value);renderFitness()">
+    </div>
+    <div class="fitness-goal-row">
+      <span class="fitness-goal-label">$ earned per workout day</span>
+      <input class="fitness-goal-input" type="number" min="0" step="0.50" value="${goals.rewardPerDay}" id="goal-${person}-rewardPerDay" oninput="saveFitnessGoalField('${person}','rewardPerDay',this.value);renderFitnessTotals()">
+    </div>
+    <div class="fitness-goal-row">
+      <span class="fitness-goal-label">Bonus $ for hitting weekly goal</span>
+      <input class="fitness-goal-input" type="number" min="0" step="0.50" value="${goals.rewardPerWeek}" id="goal-${person}-rewardPerWeek" oninput="saveFitnessGoalField('${person}','rewardPerWeek',this.value);renderFitnessTotals()">
+    </div>
+    <div class="fitness-goal-row">
+      <span class="fitness-goal-label">Extra bonus at __ days (0 = off)</span>
+      <input class="fitness-goal-input" type="number" min="0" max="7" value="${goals.bonusThreshold}" id="goal-${person}-bonusThreshold" oninput="saveFitnessGoalField('${person}','bonusThreshold',this.value);renderFitnessTotals()">
+    </div>
+    <div class="fitness-goal-row">
+      <span class="fitness-goal-label">Extra bonus amount $</span>
+      <input class="fitness-goal-input" type="number" min="0" step="0.50" value="${goals.bonusAmount}" id="goal-${person}-bonusAmount" oninput="saveFitnessGoalField('${person}','bonusAmount',this.value);renderFitnessTotals()">
+    </div>
+    <div style="margin-top:10px;font-size:11px;color:var(--text3);">
+      Max possible per week: <span style="color:${color};font-weight:500;">${fmtMoney(7*goals.rewardPerDay+goals.rewardPerWeek+(goals.bonusThreshold>0?goals.bonusAmount:0))}</span>
+    </div>`;
+}
+
+function saveFitnessGoalField(person,field,val){
+  const goals=loadFitnessGoals(person);
+  goals[field]=parseFloat(val)||0;
+  saveFitnessGoals(person,goals);
+}
+
+function renderFitnessWeekLog(name,person,weekKey){
+  const data=loadFitnessWeek(person,weekKey),goals=loadFitnessGoals(person);
+  const color=person==="crystal"?"var(--crystal-light)":"var(--aaron-light)";
+  const accentColor=person==="crystal"?"var(--crystal)":"var(--aaron)";
+  const el=document.getElementById(`${person}-week-log`);if(!el)return;
+
+  el.innerHTML=DAYS.map((day,i)=>{
+    const checked=!!data[`day_${i}_checked`];
+    const workoutType=data[`day_${i}_type`]||"";
+    const note=data[`day_${i}_note`]||"";
+    return`<div class="day-row">
+      <div class="day-label">${day.slice(0,3)}</div>
+      <input type="checkbox" class="day-check" style="accent-color:${accentColor}" ${checked?"checked":""}
+        onchange="saveDayField('${person}','${weekKey}',${i},'checked',this.checked)">
+      <div class="day-type"><input type="text" placeholder="Workout type…" value="${workoutType}"
+        oninput="saveDayField('${person}','${weekKey}',${i},'type',this.value)"
+        style="${checked?'':'opacity:0.35'}" ${checked?'':'disabled'}></div>
+      <div class="day-note"><input type="text" placeholder="Note…" value="${note}"
+        oninput="saveDayField('${person}','${weekKey}',${i},'note',this.value)"
+        style="${checked?'':'opacity:0.35'}" ${checked?'':'disabled'}></div>
+    </div>`;
+  }).join("");
+
+  // Summary
+  const{checked,earned,metGoal,gotBonus}=calcEarned(person,weekKey);
+  const pct=Math.min(checked/goals.targetDays,1);
+  const sumEl=document.getElementById(`${person}-week-summary`);if(!sumEl)return;
+  sumEl.innerHTML=`
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+      <span style="font-size:12px;color:var(--text2)">${checked} / ${goals.targetDays} days</span>
+      <span class="earned-badge ${person}" style="font-size:14px;">${fmtMoney(earned)} earned</span>
+    </div>
+    <div class="progress-bar-wrap">
+      <div class="progress-bar-fill" style="width:${(pct*100).toFixed(0)}%;background:${accentColor};"></div>
+    </div>
+    ${metGoal?`<div style="font-size:11px;color:var(--crystal-light);margin-top:6px;">✓ Weekly goal hit! +${fmtMoney(goals.rewardPerWeek)} bonus</div>`:''}
+    ${gotBonus&&goals.bonusThreshold>goals.targetDays?`<div style="font-size:11px;color:var(--accent);margin-top:3px;">⭐ Extra bonus hit! +${fmtMoney(goals.bonusAmount)}</div>`:''}`;
+}
+
+function saveDayField(person,weekKey,dayIdx,field,val){
+  const data=loadFitnessWeek(person,weekKey);
+  data[`day_${dayIdx}_${field}`]=val;
+  saveFitnessWeek(person,weekKey,data);
+  renderFitnessWeekLog(person==="Crystal"?"Crystal":person==="Aaron"?"Aaron":person,person,weekKey);
+  renderFitnessTotals();
+}
+
+function renderFitnessTotals(){
+  const crystalAll=calcAllTimeEarned("Crystal"),aaronAll=calcAllTimeEarned("Aaron");
+  const weekKey=getFitnessWeekKey(fitnessWeekOffset);
+  const cWeek=calcEarned("Crystal",weekKey),aWeek=calcEarned("Aaron",weekKey);
+  const el=document.getElementById("fitness-totals");if(!el)return;
+  el.innerHTML=`
+    <div style="padding:4px 0;">
+      <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:6px;">Crystal</div>
+      <div style="font-family:var(--font-display);font-size:28px;color:var(--crystal-light);">${fmtMoney(crystalAll)}</div>
+      <div style="font-size:11px;color:var(--text3);margin-top:3px;">earned to Crystal Splurge account</div>
+      <div style="font-size:12px;color:var(--text2);margin-top:8px;">This week: <span style="color:var(--crystal-light)">${fmtMoney(cWeek.earned)}</span></div>
+    </div>
+    <div style="padding:4px 0;">
+      <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:6px;">Aaron</div>
+      <div style="font-family:var(--font-display);font-size:28px;color:var(--aaron-light);">${fmtMoney(aaronAll)}</div>
+      <div style="font-size:11px;color:var(--text3);margin-top:3px;">earned to Aaron Splurge account</div>
+      <div style="font-size:12px;color:var(--text2);margin-top:8px;">This week: <span style="color:var(--aaron-light)">${fmtMoney(aWeek.earned)}</span></div>
+    </div>`;
+}
+
+function fitnessPrevWeek(){fitnessWeekOffset--;renderFitness();}
+function fitnessNextWeek(){if(fitnessWeekOffset<0)fitnessWeekOffset++;renderFitness();}
+function fitnessThisWeek(){fitnessWeekOffset=0;renderFitness();}
 
 function showToast(msg,isError=false){const t=document.getElementById("toast");t.textContent=msg;t.className=isError?"error":"";t.classList.add("show");setTimeout(()=>t.classList.remove("show"),2500);}
 
