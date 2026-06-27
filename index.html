@@ -453,10 +453,22 @@ td.date-col,th.date-col{width:110px;white-space:nowrap;}
   <div class="card section">
     <div class="card-title">Travel Transactions <span style="font-size:10px;color:var(--text3);margin-left:6px;">Travel & Vacation category only</span></div>
     <div class="filter-row">
-      <select id="tv-who" onchange="renderTravelTransactions()"><option value="all">All</option><option value="Crystal">Crystal</option><option value="Aaron">Aaron</option><option value="Both">Both</option></select>
       <select id="tv-loc-filter" onchange="renderTravelTransactions()"><option value="all">All Trips</option></select>
+      <select id="tv-who" onchange="renderTravelTransactions()"><option value="all">All</option><option value="Crystal">Crystal</option><option value="Aaron">Aaron</option><option value="Both">Both</option></select>
       <input type="text" id="tv-search" placeholder="Search…" oninput="renderTravelTransactions()">
     </div>
+    <div class="filter-row" style="align-items:center;">
+      <div style="display:flex;align-items:center;gap:8px;flex:1;min-width:200px;">
+        <label style="font-size:10px;color:var(--text3);white-space:nowrap;">From</label>
+        <input type="date" id="tv-date-from" onchange="renderTravelTransactions()" style="flex:1;">
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;flex:1;min-width:200px;">
+        <label style="font-size:10px;color:var(--text3);white-space:nowrap;">To</label>
+        <input type="date" id="tv-date-to" onchange="renderTravelTransactions()" style="flex:1;">
+      </div>
+      <button class="btn btn-secondary btn-sm" onclick="clearTravelDates()">Clear Dates</button>
+    </div>
+    <div id="travel-grand-total" style="margin-bottom:12px;"></div>
     <div class="table-wrap" id="travel-transactions"></div>
   </div>
 </div>
@@ -1133,22 +1145,56 @@ function refreshTravelBars(){
   if(el)el.innerHTML=sorted.length?sorted.map(([l,v])=>`<div class="hobby-bar-row"><div class="hobby-bar-label">${l}</div><div class="hobby-bar-track"><div class="hobby-bar-fill" style="width:${(v/maxL*100).toFixed(1)}%;background:#64a0c4"></div></div><div class="hobby-bar-amt">${fmtMoney(v)}</div></div>`).join(""):'<div class="empty">No tagged trips yet</div>';
 }
 
+function clearTravelDates(){
+  const f=document.getElementById("tv-date-from"),t=document.getElementById("tv-date-to");
+  if(f)f.value="";if(t)t.value="";renderTravelTransactions();
+}
+
 function renderTravelTransactions(){
   const travelMap=getTravelMap();
   const whoFilter=document.getElementById("tv-who")?.value||"all";
   const locFilter=document.getElementById("tv-loc-filter")?.value||"all";
   const search=(document.getElementById("tv-search")?.value||"").toLowerCase();
+  const dateFrom=document.getElementById("tv-date-from")?.value||"";
+  const dateTo=document.getElementById("tv-date-to")?.value||"";
   const tripOpts=TRIPS.map(t=>`<option value="${t}">${t}</option>`).join("");
+
   let txns=[...txnCache].filter(t=>{
     if(!isTravelCat(t.category))return false;
     if(whoFilter!=="all"&&t.who!==whoFilter)return false;
     if(locFilter!=="all"&&travelMap[t.id]!==locFilter)return false;
+    if(dateFrom&&t.date<dateFrom)return false;
+    if(dateTo&&t.date>dateTo)return false;
     if(search&&!(t.store||"").toLowerCase().includes(search)&&!(t.note||"").toLowerCase().includes(search))return false;
     return true;
   }).sort((a,b)=>b.date.localeCompare(a.date));
-  if(!txns.length){document.getElementById("travel-transactions").innerHTML='<div class="empty">No travel transactions found</div>';return;}
+
+  // Grand total summary
+  const grandTotal=txns.reduce((s,t)=>s+parseFloat(t.amount),0);
+  const crystalTotal=txns.filter(t=>t.who==="Crystal").reduce((s,t)=>s+parseFloat(t.amount),0);
+  const aaronTotal=txns.filter(t=>t.who==="Aaron").reduce((s,t)=>s+parseFloat(t.amount),0);
+  const bothTotal=txns.filter(t=>t.who==="Both").reduce((s,t)=>s+parseFloat(t.amount),0);
+  const hasFilters=locFilter!=="all"||dateFrom||dateTo;
+  const filterDesc=`${locFilter!=="all"?locFilter:"All Trips"}${dateFrom||dateTo?" · "+( dateFrom?fmtDate(dateFrom):"start")+" → "+(dateTo?fmtDate(dateTo):"now"):""}`;
+
+  const totalEl=document.getElementById("travel-grand-total");
+  if(totalEl&&txns.length>0){
+    totalEl.innerHTML=`
+      <div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:14px;display:flex;gap:16px;flex-wrap:wrap;align-items:center;">
+        <div>
+          <div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:3px;">${filterDesc}</div>
+          <div style="font-family:var(--font-display);font-size:26px;color:#64a0c4;">${fmtMoney(grandTotal)}</div>
+          <div style="font-size:11px;color:var(--text3);margin-top:2px;">${txns.length} transaction${txns.length!==1?"s":""}</div>
+        </div>
+        ${crystalTotal>0?`<div style="border-left:1px solid var(--border);padding-left:16px;"><div style="font-size:10px;color:var(--text3);margin-bottom:3px;">Crystal</div><div style="font-size:18px;font-family:var(--font-display);color:var(--crystal-light);">${fmtMoney(crystalTotal)}</div></div>`:""}
+        ${aaronTotal>0?`<div style="border-left:1px solid var(--border);padding-left:16px;"><div style="font-size:10px;color:var(--text3);margin-bottom:3px;">Aaron</div><div style="font-size:18px;font-family:var(--font-display);color:var(--aaron-light);">${fmtMoney(aaronTotal)}</div></div>`:""}
+        ${bothTotal>0?`<div style="border-left:1px solid var(--border);padding-left:16px;"><div style="font-size:10px;color:var(--text3);margin-bottom:3px;">Shared</div><div style="font-size:18px;font-family:var(--font-display);color:var(--accent);">${fmtMoney(bothTotal)}</div></div>`:""}
+      </div>`;
+  }else if(totalEl){totalEl.innerHTML="";}
+
+  if(!txns.length){document.getElementById("travel-transactions").innerHTML='<div class="empty">No travel transactions match your filters</div>';return;}
   document.getElementById("travel-transactions").innerHTML=`<table><thead><tr><th>Date</th><th>Store</th><th>Note</th><th>Category</th><th>Amount</th><th>Who</th><th>Trip Tag</th></tr></thead><tbody>${txns.map(t=>`<tr><td style="white-space:nowrap;color:var(--text2)">${fmtDate(t.date)}</td><td>${t.store||""}</td><td style="color:var(--text3)">${t.note||""}</td><td>${t.category||""}</td><td class="amount-cell">${fmtMoney(t.amount)}</td><td><span class="tag ${(t.who||"").toLowerCase()}">${t.who||""}</span></td><td><select onchange="tagTravel('${t.id}',this.value)" style="width:140px;padding:3px 8px;font-size:12px;background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:4px;"><option value="">— untag —</option>${tripOpts}</select></td></tr>`).join("")}</tbody></table>`;
-  // Set saved values
+  // Restore saved trip tags
   txns.forEach(t=>{const sel=document.querySelector(`#travel-transactions tr select[onchange*="'${t.id}'"]`);if(sel&&travelMap[t.id])sel.value=travelMap[t.id];});
 }
 
