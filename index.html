@@ -1245,13 +1245,29 @@ function generateWeeksForYear(year){
   for(let i=0;i<52;i++){const d=new Date(firstMon);d.setDate(d.getDate()+i*7);const ds=d.toISOString().slice(0,10);weeks.push({dateStr:ds,label:getWeekLabel(ds),weekNum:i+1});}
   return weeks;
 }
-function buildContribMap(){const m={};contribCache.forEach(c=>{m[c.id]=c;});return m;}
+function buildContribMap(){
+  // Key: "accountKey_dateStr" → row. Must match exactly how rows are stored.
+  const m={};
+  contribCache.forEach(c=>{
+    // Support both id-keyed and account_key+week_date keyed lookup
+    m[c.id]=c;
+    if(c.account_key&&c.week_date)m[`${c.account_key}_${c.week_date}`]=c;
+  });
+  return m;
+}
+
+// Scan backwards through weeks to find the last CHECKED row's amount.
+// Skips unchecked rows. Returns defaultAmt if nothing found.
 function getLastAmount(accountKey,upToDateStr,cm,weeks){
   const acc=ACCOUNTS.find(a=>a.key===accountKey);
   const past=[...weeks].filter(w=>w.dateStr<upToDateStr).reverse();
-  for(const w of past){const c=cm[`${accountKey}_${w.dateStr}`];if(c&&parseFloat(c.amount||0)>0)return parseFloat(c.amount);}
+  for(const w of past){
+    const c=cm[`${accountKey}_${w.dateStr}`];
+    if(c&&c.checked===true)return parseFloat(c.amount||0);
+  }
   return acc?.defaultAmt||0;
 }
+
 function drawRing(canvas,pct,color,size){
   size=size||70;const ctx=canvas.getContext("2d"),cx=size/2,cy=size/2,r=size/2-5;
   ctx.clearRect(0,0,size,size);ctx.beginPath();ctx.arc(cx,cy,r,0,2*Math.PI);ctx.strokeStyle="rgba(255,255,255,0.06)";ctx.lineWidth=7;ctx.stroke();
@@ -1263,8 +1279,8 @@ function renderContributions(){
   const selectedYear=getSelectedContribYear(),weeks=generateWeeksForYear(selectedYear),allWeeks=[...generateWeeksForYear(2025),...generateWeeksForYear(2026)],cm=buildContribMap();
   const yearTotals={},allTimeTotals={};
   ACCOUNTS.forEach(acc=>{
-    yearTotals[acc.key]=weeks.reduce((s,w)=>{const c=cm[`${acc.key}_${w.dateStr}`];return s+(c&&c.checked?parseFloat(c.amount||0):0);},0);
-    allTimeTotals[acc.key]=allWeeks.reduce((s,w)=>{const c=cm[`${acc.key}_${w.dateStr}`];return s+(c&&c.checked?parseFloat(c.amount||0):0);},0);
+    yearTotals[acc.key]=weeks.reduce((s,w)=>{const c=cm[`${acc.key}_${w.dateStr}`];return s+(c&&c.checked===true?parseFloat(c.amount||0):0);},0);
+    allTimeTotals[acc.key]=allWeeks.reduce((s,w)=>{const c=cm[`${acc.key}_${w.dateStr}`];return s+(c&&c.checked===true?parseFloat(c.amount||0):0);},0);
   });
   const yrLabel=String(selectedYear),goals=getGoalsForYear(selectedYear);
   const crystalYear=(yearTotals.crystal401k||0)+(yearTotals.crystalIRA||0)+(yearTotals.hsa||0)+(yearTotals.crystalBrok||0);
@@ -1289,12 +1305,34 @@ function renderContributions(){
     return`<div class="account-card" style="border-color:${acc.owner==="Aaron"?"rgba(139,122,160,0.2)":acc.owner==="Crystal"?"rgba(122,158,126,0.2)":"var(--border)"}"><div><div class="account-name-label" style="color:${oc}">${acc.label}</div><div class="account-owner-label">${acc.owner}</div></div><div class="account-ring-wrap"><canvas width="70" height="70" id="ring-${acc.key}"></canvas><div class="account-nums"><div class="account-contributed" style="color:${oc}">${fmtMoney(contributed)}</div><div class="account-goal">of ${fmtMoney(accGoal)} ${yrLabel}</div><div class="account-remaining">${fmtMoney(remaining)} left</div><div class="account-pct">${(pct*100).toFixed(1)}%</div>${allTime!==contributed?`<div class="account-goal" style="margin-top:3px">All time: ${fmtMoney(allTime)}</div>`:""}</div></div></div>`;
   }).join("");
   ACCOUNTS.forEach(acc=>{const cv=document.getElementById("ring-"+acc.key);if(cv){const g=goals[acc.key]||1;drawRing(cv,(yearTotals[acc.key]||0)/g,acc.color,70);}});
+
   document.getElementById("contrib-entry-tables").innerHTML=ACCOUNTS.map(acc=>{
     const rowsHTML=weeks.map(w=>{
-      const k=`${acc.key}_${w.dateStr}`,c=cm[k]||{},isChecked=!!(c.checked),lastAmt=getLastAmount(acc.key,w.dateStr,cm,weeks),displayAmt=isChecked&&c.amount&&parseFloat(c.amount)>0?c.amount:"";
-      return`<div class="contrib-row${isChecked?" contrib-done":""}" id="row-${k}"><div class="contrib-week">${w.label}</div><label class="custom-check" onclick="event.stopPropagation()"><input type="checkbox" ${isChecked?"checked":""}onchange="toggleContrib(event,'${k}','${acc.key}','${w.dateStr}',${lastAmt})"><span class="checkmark"></span></label><input type="number" class="contrib-input" placeholder="${lastAmt>0?lastAmt.toFixed(2):'0.00'}" value="${displayAmt}" onclick="event.stopPropagation()" oninput="amountContrib('${k}','${acc.key}','${w.dateStr}',this.value)" style="${isChecked?'':'opacity:0.35'}"></div>`;
+      const k=`${acc.key}_${w.dateStr}`;
+      const c=cm[k]||{};
+      // checked must be strictly boolean true — coerce from Supabase which may return bool or string
+      const isChecked=c.checked===true||c.checked==="true";
+      const savedAmt=parseFloat(c.amount||0);
+      // For checked rows: show the saved amount as the input value
+      // For unchecked rows: show placeholder from last checked row above, no value
+      const lastAmt=getLastAmount(acc.key,w.dateStr,cm,weeks);
+      const inputValue=isChecked?savedAmt.toFixed(2):"";
+      const placeholder=lastAmt>0?lastAmt.toFixed(2):(acc.defaultAmt>0?acc.defaultAmt.toFixed(2):"0.00");
+      return`<div class="contrib-row${isChecked?" contrib-done":""}" id="row-${k}">
+        <div class="contrib-week">${w.label}</div>
+        <label class="custom-check" onclick="event.stopPropagation()">
+          <input type="checkbox" ${isChecked?"checked":""} onchange="toggleContrib(event,'${k}','${acc.key}','${w.dateStr}')">
+          <span class="checkmark"></span>
+        </label>
+        <input type="number" class="contrib-input"
+          placeholder="${placeholder}"
+          value="${inputValue}"
+          onclick="event.stopPropagation()"
+          oninput="amountContrib('${k}','${acc.key}','${w.dateStr}',this.value)"
+          style="${isChecked?'':'opacity:0.35;'}">
+      </div>`;
     }).join("");
-    const weekTotal=weeks.reduce((s,w)=>{const c=cm[`${acc.key}_${w.dateStr}`];return s+(c&&c.checked?parseFloat(c.amount||0):0);},0);
+    const weekTotal=weeks.reduce((s,w)=>{const c=cm[`${acc.key}_${w.dateStr}`];return s+(c&&(c.checked===true||c.checked==="true")?parseFloat(c.amount||0):0);},0);
     const isOpen=openAccordions.has(acc.key),oc=acc.owner==="Aaron"?"var(--aaron-light)":acc.owner==="Crystal"?"var(--crystal-light)":"var(--accent)",bc=acc.owner==="Aaron"?"rgba(139,122,160,0.2)":acc.owner==="Crystal"?"rgba(122,158,126,0.2)":"var(--border)";
     return`<div class="contrib-account" style="border-color:${bc}"><div class="contrib-header" onclick="toggleAccordion('${acc.key}')"><div class="contrib-name" style="color:${oc}">${acc.label} <span style="color:var(--text3);font-size:10px">· ${acc.owner}</span></div><div style="display:flex;align-items:center;gap:9px;"><div class="contrib-total" id="total-${acc.key}" style="color:${oc}">${fmtMoney(weekTotal)}</div><span class="contrib-chevron${isOpen?" open":""}" id="chev-${acc.key}">▼</span></div></div><div class="contrib-rows${isOpen?" open":""}" id="acc-${acc.key}">${rowsHTML}</div></div>`;
   }).join("");
@@ -1303,44 +1341,94 @@ function renderContributions(){
 function toggleAccordion(key){const rows=document.getElementById("acc-"+key),chev=document.getElementById("chev-"+key);if(!rows)return;if(openAccordions.has(key))openAccordions.delete(key);else openAccordions.add(key);rows.classList.toggle("open",openAccordions.has(key));if(chev)chev.classList.toggle("open",openAccordions.has(key));}
 
 let debounce={};
-async function toggleContrib(event,id,ak,wd,lastAmt){
-  event.stopPropagation();const checkbox=event.target,checked=checkbox.checked,row=document.getElementById("row-"+id);if(!row)return;
-  const amtInput=row.querySelector(".contrib-input");let amount=parseFloat(amtInput?.value)||0;
-  if(checked&&amount===0&&lastAmt>0){amount=lastAmt;if(amtInput)amtInput.value=lastAmt;}
-  if(amtInput)amtInput.style.opacity=checked?"1":"0.35";if(checked)row.classList.add("contrib-done");else row.classList.remove("contrib-done");
-  const idx=contribCache.findIndex(c=>c.id===id),r={id,account_key:ak,week_date:wd,checked,amount};
+
+async function toggleContrib(event,id,ak,wd){
+  event.stopPropagation();
+  const checkbox=event.target,checked=checkbox.checked;
+  const row=document.getElementById("row-"+id);if(!row)return;
+  const amtInput=row.querySelector(".contrib-input");
+
+  let amount=parseFloat(amtInput?.value)||0;
+
+  if(checked&&amount===0){
+    // Fill from last checked row above (scanning backwards)
+    const selectedYear=getSelectedContribYear(),weeks=generateWeeksForYear(selectedYear),cm=buildContribMap();
+    const lastAmt=getLastAmount(ak,wd,cm,weeks);
+    if(lastAmt>0){amount=lastAmt;if(amtInput)amtInput.value=lastAmt.toFixed(2);}
+    else if(amtInput?.placeholder){
+      const ph=parseFloat(amtInput.placeholder)||0;
+      if(ph>0){amount=ph;if(amtInput)amtInput.value=ph.toFixed(2);}
+    }
+  }
+
+  if(amtInput)amtInput.style.opacity=checked?"1":"0.35";
+  if(checked)row.classList.add("contrib-done");else row.classList.remove("contrib-done");
+
+  // Update cache
+  const idx=contribCache.findIndex(c=>c.id===id);
+  const r={id,account_key:ak,week_date:wd,checked,amount};
   if(idx>=0)contribCache[idx]=r;else contribCache.push(r);
+
+  // If now checked, propagate this amount as placeholder to all future unchecked rows
   if(checked&&amount>0)propagateAmount(ak,wd,amount);
+
   refreshAccountTotal(ak);refreshGrandTotals();
-  clearTimeout(debounce[id]);debounce[id]=setTimeout(async()=>{const r2=contribCache.find(c=>c.id===id);if(!r2)return;const{error}=await sb.from("contributions").upsert([r2],{onConflict:"id"});if(error)showToast("Sync error: "+error.message,true);},600);
+
+  clearTimeout(debounce[id]);
+  debounce[id]=setTimeout(async()=>{
+    const r2=contribCache.find(c=>c.id===id);if(!r2)return;
+    const{error}=await sb.from("contributions").upsert([{id:r2.id,account_key:r2.account_key,week_date:r2.week_date,checked:r2.checked,amount:r2.amount}],{onConflict:"id"});
+    if(error)showToast("Sync error: "+error.message,true);
+  },600);
 }
+
 async function amountContrib(id,ak,wd,value){
-  const amount=parseFloat(value)||0,idx=contribCache.findIndex(c=>c.id===id),existing=idx>=0?{...contribCache[idx]}:{id,account_key:ak,week_date:wd,checked:false,amount:0};
-  existing.amount=amount;if(idx>=0)contribCache[idx]=existing;else contribCache.push(existing);
-  if(existing.checked&&amount>0)propagateAmount(ak,wd,amount);
+  const amount=parseFloat(value)||0;
+  const idx=contribCache.findIndex(c=>c.id===id);
+  const existing=idx>=0?{...contribCache[idx]}:{id,account_key:ak,week_date:wd,checked:false,amount:0};
+  existing.amount=amount;
+  if(idx>=0)contribCache[idx]=existing;else contribCache.push(existing);
+  // If this row is checked, propagate the new amount to future unchecked rows
+  if(existing.checked===true&&amount>0)propagateAmount(ak,wd,amount);
   refreshAccountTotal(ak);refreshGrandTotals();
-  clearTimeout(debounce[id]);debounce[id]=setTimeout(async()=>{const r=contribCache.find(c=>c.id===id);if(!r)return;const{error}=await sb.from("contributions").upsert([r],{onConflict:"id"});if(error)showToast("Sync error: "+error.message,true);},800);
+  clearTimeout(debounce[id]);
+  debounce[id]=setTimeout(async()=>{
+    const r=contribCache.find(c=>c.id===id);if(!r)return;
+    const{error}=await sb.from("contributions").upsert([{id:r.id,account_key:r.account_key,week_date:r.week_date,checked:r.checked,amount:r.amount}],{onConflict:"id"});
+    if(error)showToast("Sync error: "+error.message,true);
+  },800);
 }
+
+// Update placeholders on all future UNCHECKED rows in this account
 function propagateAmount(accountKey,afterDateStr,newAmount){
   const container=document.getElementById("acc-"+accountKey);if(!container)return;
   let past=false;
   container.querySelectorAll(".contrib-row").forEach(row=>{
-    const rowId=row.id.replace("row-","");if(rowId===`${accountKey}_${afterDateStr}`){past=true;return;}if(!past)return;
-    const cb=row.querySelector("input[type=checkbox]");if(cb&&cb.checked)return;
-    const inp=row.querySelector(".contrib-input");if(inp)inp.placeholder=newAmount.toFixed(2);
+    const rowId=row.id.replace("row-","");
+    if(rowId===`${accountKey}_${afterDateStr}`){past=true;return;}
+    if(!past)return;
+    const cb=row.querySelector("input[type=checkbox]");
+    if(cb&&cb.checked)return; // stop propagating at the next checked row
+    const inp=row.querySelector(".contrib-input");
+    if(inp&&!inp.value)inp.placeholder=newAmount.toFixed(2);
   });
 }
+
 function refreshAccountTotal(key){
   const selectedYear=getSelectedContribYear(),weeks=generateWeeksForYear(selectedYear),weekDates=new Set(weeks.map(w=>w.dateStr));
-  const total=contribCache.filter(c=>c.account_key===key&&c.checked&&weekDates.has(c.week_date)).reduce((s,c)=>s+parseFloat(c.amount||0),0);
+  const total=contribCache.filter(c=>c.account_key===key&&(c.checked===true||c.checked==="true")&&weekDates.has(c.week_date)).reduce((s,c)=>s+parseFloat(c.amount||0),0);
   const el=document.getElementById("total-"+key);if(el)el.textContent=fmtMoney(total);
   const acc=ACCOUNTS.find(a=>a.key===key),cv=document.getElementById("ring-"+key);
   if(cv&&acc){const g=getGoalsForYear(getSelectedContribYear())[key]||1;drawRing(cv,total/g,acc.color,70);}
 }
+
 function refreshGrandTotals(){
   const selectedYear=getSelectedContribYear(),weeks=generateWeeksForYear(selectedYear),allWeeks=[...generateWeeksForYear(2025),...generateWeeksForYear(2026)],yearDates=new Set(weeks.map(w=>w.dateStr)),allDates=new Set(allWeeks.map(w=>w.dateStr));
   const yearTotals={},allTimeTotals={};
-  ACCOUNTS.forEach(acc=>{yearTotals[acc.key]=contribCache.filter(c=>c.account_key===acc.key&&c.checked&&yearDates.has(c.week_date)).reduce((s,c)=>s+parseFloat(c.amount||0),0);allTimeTotals[acc.key]=contribCache.filter(c=>c.account_key===acc.key&&c.checked&&allDates.has(c.week_date)).reduce((s,c)=>s+parseFloat(c.amount||0),0);});
+  ACCOUNTS.forEach(acc=>{
+    yearTotals[acc.key]=contribCache.filter(c=>c.account_key===acc.key&&(c.checked===true||c.checked==="true")&&yearDates.has(c.week_date)).reduce((s,c)=>s+parseFloat(c.amount||0),0);
+    allTimeTotals[acc.key]=contribCache.filter(c=>c.account_key===acc.key&&(c.checked===true||c.checked==="true")&&allDates.has(c.week_date)).reduce((s,c)=>s+parseFloat(c.amount||0),0);
+  });
   const goals=getGoalsForYear(selectedYear);
   const crystalYear=(yearTotals.crystal401k||0)+(yearTotals.crystalIRA||0)+(yearTotals.hsa||0)+(yearTotals.crystalBrok||0);
   const aaronYear=(yearTotals.aaron401k||0)+(yearTotals.aaronIRA||0)+(yearTotals.aaronBrok||0);
@@ -1348,7 +1436,7 @@ function refreshGrandTotals(){
   const crystalGoal=(goals.crystal401k||0)+(goals.crystalIRA||0)+(goals.hsa||0)+(goals.crystalBrok||0);
   const aaronGoal=(goals.aaron401k||0)+(goals.aaronIRA||0)+(goals.aaronBrok||0);
   const grandGoal=crystalGoal+aaronGoal+(goals.emergency||0);
-  [["ring-crystal-total",crystalYear,crystalGoal,"#7a9e7e"],["ring-aaron-total",aaronYear,aaronGoal,"#8b7aa0"],["ring-grand-total",grandYear,grandGoal,"#c4a882"]].forEach(([id,tot,goal,col])=>{const cv=document.getElementById(id);if(cv)drawRing(cv,goal>0?tot/goal:0,col,60);});
+  [["ring-crystal-total",crystalYear,crystalGoal,"#7a9e7e"],["ring-aaron-total",aaronYear,aaronGoal,"#8b7aa0"],["ring-grand-total",grandYear,grandGoal,"#c4a882"]].forEach(([elemId,tot,goal,col])=>{const cv=document.getElementById(elemId);if(cv)drawRing(cv,goal>0?tot/goal:0,col,60);});
 }
 
 // ── FITNESS ───────────────────────────────────────────────────────────────────
