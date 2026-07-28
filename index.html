@@ -157,8 +157,10 @@ td.date-col,th.date-col{width:110px;white-space:nowrap;}
 .contrib-chevron.open{transform:rotate(180deg);}
 .contrib-row{display:flex;align-items:center;gap:11px;padding:8px 14px;border-bottom:1px solid rgba(58,53,48,0.4);}
 .contrib-row:last-child{border-bottom:none;}
-.contrib-row.contrib-done{opacity:0.5;}
-.contrib-week{flex:1;font-size:11px;color:var(--text2);}
+.contrib-row:nth-child(odd){background:var(--surface2);}
+.contrib-row:nth-child(even){background:rgba(30,27,24,0.6);}
+.contrib-row.contrib-done .contrib-week{color:var(--text);font-weight:500;}
+.contrib-week{flex:1;font-size:11px;color:var(--text3);}
 .contrib-input{width:88px;padding:4px 7px;font-size:12px;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:4px;font-family:var(--font-mono);flex-shrink:0;}
 .contrib-input:focus{border-color:var(--accent);outline:none;}
 .custom-check{position:relative;display:flex;align-items:center;cursor:pointer;flex-shrink:0;}
