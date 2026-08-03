@@ -242,14 +242,12 @@ td.date-col,th.date-col{width:110px;white-space:nowrap;}
   <div class="nav-logo">◆ Financials</div>
   <div class="nav-tabs">
     <button class="nav-tab active" onclick="showView('dashboard')">Dashboard</button>
-    <button class="nav-tab" onclick="showView('add')">+ Add</button>
     <button class="nav-tab" onclick="showView('transactions')">Transactions</button>
-    <button class="nav-tab" onclick="showView('import')">Import</button>
     <button class="nav-tab" onclick="showView('contributions')">Contributions</button>
     <button class="nav-tab" onclick="showView('hobbies')">Hobbies</button>
     <button class="nav-tab" onclick="showView('travel')">Travel</button>
+    <button class="nav-tab" onclick="showView('bills')">Bills</button>
     <button class="nav-tab" onclick="showView('settings')">Settings</button>
-    <button class="nav-tab" onclick="showView('fitness')">💪 Fitness</button>
   </div>
   <div class="sync-dot"><div class="dot" id="sync-dot"></div><span id="sync-label">…</span></div>
 </nav>
@@ -278,8 +276,18 @@ td.date-col,th.date-col{width:110px;white-space:nowrap;}
 <!-- DASHBOARD -->
 <div id="view-dashboard" class="view active">
   <div class="page-header"><h1>Dashboard</h1><p>Spending overview & trends</p></div>
+
+  <!-- SPENDING STATS -->
   <div class="stat-row" id="dash-primary-stats"><div class="loading" style="grid-column:1/-1">Loading…</div></div>
   <div id="dash-running-wrap" style="margin-bottom:14px;"></div>
+
+  <!-- CONTRIBUTIONS OVERVIEW -->
+  <div class="card section">
+    <div class="card-title">Contributions Overview</div>
+    <div id="dash-contrib-stats" class="stat-row" style="margin-bottom:0;"></div>
+  </div>
+
+  <!-- SPENDING BY CATEGORY + DONUT -->
   <div class="two-col section">
     <div class="card">
       <div class="card-title">Spending by Category</div>
@@ -300,57 +308,115 @@ td.date-col,th.date-col{width:110px;white-space:nowrap;}
       </div>
     </div>
   </div>
+
+  <!-- MONTHLY TREND -->
   <div class="card section"><div class="card-title">Monthly Trend</div><div class="trend-wrap" id="trend-wrap"><canvas id="trend-canvas"></canvas></div></div>
+
+  <!-- MONTH COMPARISON CHART -->
+  <div class="card section">
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:12px;">
+      <div class="card-title" style="margin-bottom:0;">Month Comparison</div>
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+        <span style="font-size:11px;color:var(--text2);">Compare this month vs</span>
+        <select id="d-compare-month" onchange="renderCompareChart()" style="width:auto;padding:5px 9px;font-size:12px;"><option value="">Last Month</option></select>
+      </div>
+    </div>
+    <div id="compare-legend" style="display:flex;gap:16px;margin-bottom:10px;flex-wrap:wrap;"></div>
+    <div class="trend-wrap"><canvas id="compare-canvas"></canvas></div>
+  </div>
+
+  <!-- TOP CATEGORIES BY MONTH -->
+  <div class="card section">
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:12px;">
+      <div class="card-title" style="margin-bottom:0;">Top Categories by Month</div>
+      <select id="d-cat-month" onchange="renderCatByMonth()" style="width:auto;padding:5px 9px;font-size:12px;"><option value="">This Month</option></select>
+    </div>
+    <div id="cat-by-month"></div>
+  </div>
+
+  <!-- RECENT TRANSACTIONS -->
   <div class="card section"><div class="card-title">Recent Transactions</div><div class="table-wrap" id="recent-table"><div class="loading">Loading…</div></div></div>
 </div>
 
-<!-- ADD -->
-<div id="view-add" class="view">
-  <div class="page-header"><h1>Add Transaction</h1><p>New expense entry</p></div>
-  <div class="card" style="max-width:560px;">
-    <div class="form-grid">
-      <div class="form-group"><label>Date</label><input type="date" id="f-date"></div>
-      <div class="form-group"><label>Store / Merchant</label><input type="text" id="f-store" placeholder="e.g. Walmart"></div>
-      <div class="form-group"><label>Note (optional)</label><input type="text" id="f-note" placeholder="e.g. Weekly groceries"></div>
-      <div class="form-group"><label>Amount ($)</label><input type="number" id="f-amount" placeholder="0.00" step="0.01" min="0"></div>
-      <div class="form-group">
-        <label>Category</label>
-        <div class="combo-wrap"><input type="text" class="combo-input" id="f-category-text" placeholder="Type or select…" autocomplete="off" oninput="filterCombo('category')" onfocus="openCombo('category')" onblur="closeCombo('category',300)"><input type="hidden" id="f-category"><div class="combo-list" id="combo-list-category"></div></div>
-      </div>
-      <div class="form-group">
-        <label>Who</label>
-        <div class="combo-wrap"><input type="text" class="combo-input" id="f-who-text" placeholder="Type or select…" autocomplete="off" oninput="filterCombo('who')" onfocus="openCombo('who')" onblur="closeCombo('who',300)"><input type="hidden" id="f-who"><div class="combo-list" id="combo-list-who"></div></div>
-      </div>
-      <div class="form-group full">
-        <label>Charge Type</label>
-        <div class="combo-wrap"><input type="text" class="combo-input" id="f-charge-text" placeholder="Type or select…" autocomplete="off" oninput="filterCombo('charge')" onfocus="openCombo('charge')" onblur="closeCombo('charge',300)"><input type="hidden" id="f-charge"><div class="combo-list" id="combo-list-charge"></div></div>
-      </div>
-      <!-- Hobby tag — only shown when category contains hobby keyword -->
-      <div class="form-group full" id="f-hobby-wrap" style="display:none;">
-        <label>Hobby Tag (optional)</label>
-        <select id="f-hobby-tag"><option value="">— untag —</option></select>
-      </div>
-      <!-- Travel tag — only shown when category is Travel/Vacation -->
-      <div class="form-group full" id="f-travel-wrap" style="display:none;">
-        <label>Trip (optional)</label>
-        <select id="f-travel-loc"><option value="">— Select trip —</option></select>
-      </div>
-      <div class="form-group full" style="margin-top:5px;"><button class="btn btn-primary" id="add-btn" onclick="addTransaction()">Add Transaction</button></div>
-    </div>
-  </div>
-</div>
-
-<!-- TRANSACTIONS -->
+<!-- TRANSACTIONS (unified: add + import + list) -->
 <div id="view-transactions" class="view">
   <div class="page-header">
     <div class="header-actions">
-      <div><h1>Transactions</h1><p>Tap any cell to edit inline</p></div>
-      <div style="display:flex;gap:8px;">
+      <div><h1>Transactions</h1><p>Add, import, and manage expenses</p></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <button class="btn btn-secondary btn-sm" onclick="togglePanel('add-panel')">+ Add</button>
+        <button class="btn btn-secondary btn-sm" onclick="togglePanel('import-panel')">↑ Import</button>
         <button class="btn btn-warn btn-sm" onclick="openBulkModal()">Bulk Edit</button>
-        <button class="btn btn-secondary btn-sm" onclick="exportCSV()">↓ Export CSV</button>
+        <button class="btn btn-secondary btn-sm" onclick="exportCSV()">↓ Export</button>
       </div>
     </div>
   </div>
+
+  <!-- ADD PANEL (collapsible) -->
+  <div id="add-panel" style="display:none;margin-bottom:14px;">
+    <div class="card">
+      <div class="card-title">New Transaction</div>
+      <div class="form-grid">
+        <div class="form-group"><label>Date</label><input type="date" id="f-date"></div>
+        <div class="form-group"><label>Store / Merchant</label><input type="text" id="f-store" placeholder="e.g. Walmart"></div>
+        <div class="form-group"><label>Note (optional)</label><input type="text" id="f-note" placeholder="e.g. Weekly groceries"></div>
+        <div class="form-group"><label>Amount ($)</label><input type="number" id="f-amount" placeholder="0.00" step="0.01" min="0"></div>
+        <div class="form-group">
+          <label>Category</label>
+          <div class="combo-wrap"><input type="text" class="combo-input" id="f-category-text" placeholder="Type or select…" autocomplete="off" oninput="filterCombo('category')" onfocus="openCombo('category')" onblur="closeCombo('category',300)"><input type="hidden" id="f-category"><div class="combo-list" id="combo-list-category"></div></div>
+        </div>
+        <div class="form-group">
+          <label>Who</label>
+          <div class="combo-wrap"><input type="text" class="combo-input" id="f-who-text" placeholder="Type or select…" autocomplete="off" oninput="filterCombo('who')" onfocus="openCombo('who')" onblur="closeCombo('who',300)"><input type="hidden" id="f-who"><div class="combo-list" id="combo-list-who"></div></div>
+        </div>
+        <div class="form-group full">
+          <label>Charge Type</label>
+          <div class="combo-wrap"><input type="text" class="combo-input" id="f-charge-text" placeholder="Type or select…" autocomplete="off" oninput="filterCombo('charge')" onfocus="openCombo('charge')" onblur="closeCombo('charge',300)"><input type="hidden" id="f-charge"><div class="combo-list" id="combo-list-charge"></div></div>
+        </div>
+        <div class="form-group full" id="f-hobby-wrap" style="display:none;">
+          <label>Hobby Tag (optional)</label>
+          <select id="f-hobby-tag"><option value="">— untag —</option></select>
+        </div>
+        <div class="form-group full" id="f-travel-wrap" style="display:none;">
+          <label>Trip (optional)</label>
+          <select id="f-travel-loc"><option value="">— Select trip —</option></select>
+        </div>
+        <div class="form-group full" style="margin-top:5px;">
+          <button class="btn btn-primary" id="add-btn" onclick="addTransaction()">Save Transaction</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- IMPORT PANEL (collapsible) -->
+  <div id="import-panel" style="display:none;margin-bottom:14px;">
+    <div class="card">
+      <div class="card-title">Import from Bank CSV</div>
+      <div class="import-tabs">
+        <button class="import-tab active" onclick="switchImportTab('chase',this)">Chase</button>
+        <button class="import-tab" onclick="switchImportTab('amex',this)">Amex</button>
+      </div>
+      <div id="import-upload-card">
+        <div class="import-drop" id="drop-zone" onclick="document.getElementById('csv-file').click()">
+          <div class="icon">📄</div>
+          <strong id="import-drop-label">Tap to select your Chase CSV</strong>
+          <p id="import-drop-hint" style="color:var(--text3);font-size:11px;margin-top:4px;">chase.com → account → Account Activity → download icon → CSV</p>
+        </div>
+        <input type="file" id="csv-file" accept=".csv" style="display:none" onchange="handleCSVUpload(this)">
+      </div>
+      <div id="import-review-area" style="display:none;margin-top:14px;">
+        <div class="import-summary" id="import-summary"></div>
+        <div style="display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap;align-items:center;">
+          <button class="btn btn-primary" onclick="saveAllReviewed()">Save All Reviewed</button>
+          <button class="btn btn-secondary btn-sm" onclick="resetImport()">↺ Start Over</button>
+          <span id="review-progress" style="font-size:12px;color:var(--text3);"></span>
+        </div>
+        <div id="review-rows"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- FILTER + TABLE -->
   <div class="card">
     <div class="filter-row">
       <select id="t-year" onchange="updateDependentFilters('t');renderTransactions()"><option value="all">All Years</option></select>
@@ -362,33 +428,6 @@ td.date-col,th.date-col{width:110px;white-space:nowrap;}
       <input type="text" id="t-search" placeholder="Search…" oninput="renderTransactions()">
     </div>
     <div class="table-wrap" id="transactions-table"><div class="loading">Loading…</div></div>
-  </div>
-</div>
-
-<!-- IMPORT -->
-<div id="view-import" class="view">
-  <div class="page-header"><h1>Import</h1><p>Upload a bank CSV to review and add missing transactions</p></div>
-  <div class="import-tabs">
-    <button class="import-tab active" onclick="switchImportTab('chase',this)">Chase</button>
-    <button class="import-tab" onclick="switchImportTab('amex',this)">Amex</button>
-  </div>
-  <div class="card section" id="import-upload-card">
-    <div class="card-title" id="import-card-title">Upload Chase CSV</div>
-    <div class="import-drop" id="drop-zone" onclick="document.getElementById('csv-file').click()">
-      <div class="icon">📄</div>
-      <strong id="import-drop-label">Tap to select your Chase CSV</strong>
-      <p id="import-drop-hint">chase.com → account → Account Activity → download icon → CSV</p>
-    </div>
-    <input type="file" id="csv-file" accept=".csv" style="display:none" onchange="handleCSVUpload(this)">
-  </div>
-  <div id="import-review-area" style="display:none;">
-    <div class="import-summary" id="import-summary"></div>
-    <div style="display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap;align-items:center;">
-      <button class="btn btn-primary" onclick="saveAllReviewed()">Save All Reviewed</button>
-      <button class="btn btn-secondary btn-sm" onclick="resetImport()">↺ Start Over</button>
-      <span id="review-progress" style="font-size:12px;color:var(--text3);margin-left:4px;"></span>
-    </div>
-    <div id="review-rows"></div>
   </div>
 </div>
 
@@ -498,49 +537,57 @@ td.date-col,th.date-col{width:110px;white-space:nowrap;}
     </div>
   </div>
 </div>
-<!-- FITNESS -->
-<div id="view-fitness" class="view">
-  <div class="page-header"><h1>💪 Fitness Goals</h1><p>Track workouts and earn splurge money</p></div>
+<!-- BILLS -->
+<div id="view-bills" class="view">
+  <div class="page-header"><h1>Bills & Recurring</h1><p>Fixed expenses and subscriptions</p></div>
 
-  <!-- Goals setup -->
-  <div class="two-col section">
-    <div class="card">
-      <div class="card-title">Crystal's Goals</div>
-      <div id="crystal-goals-form"></div>
-    </div>
-    <div class="card">
-      <div class="card-title">Aaron's Goals</div>
-      <div id="aaron-goals-form"></div>
-    </div>
+  <!-- Coming up -->
+  <div class="section">
+    <div class="card-title" style="margin-bottom:10px;">Due in the Next 30 Days</div>
+    <div id="bills-upcoming"></div>
   </div>
 
-  <!-- Week selector -->
-  <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap;">
-    <button class="btn btn-secondary btn-sm" onclick="fitnessPrevWeek()">← Prev</button>
-    <span id="fitness-week-label" style="font-family:var(--font-display);font-size:16px;"></span>
-    <button class="btn btn-secondary btn-sm" onclick="fitnessNextWeek()">Next →</button>
-    <button class="btn btn-secondary btn-sm" onclick="fitnessThisWeek()">This Week</button>
-  </div>
+  <!-- Summary -->
+  <div class="three-col section" id="bills-summary"></div>
 
-  <!-- Weekly log -->
-  <div class="two-col section">
-    <div class="card">
-      <div class="card-title">Crystal — This Week</div>
-      <div id="crystal-week-log"></div>
-      <div id="crystal-week-summary" style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border);"></div>
-    </div>
-    <div class="card">
-      <div class="card-title">Aaron — This Week</div>
-      <div id="aaron-week-log"></div>
-      <div id="aaron-week-summary" style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border);"></div>
-    </div>
-  </div>
-
-  <!-- Running totals -->
+  <!-- Add new bill -->
   <div class="card section">
-    <div class="card-title">Earned Splurge Money — All Time</div>
-    <div class="two-col" id="fitness-totals"></div>
+    <div class="card-title">Add Recurring Bill</div>
+    <div class="form-grid">
+      <div class="form-group"><label>Name</label><input type="text" id="bill-name" placeholder="e.g. Netflix"></div>
+      <div class="form-group"><label>Amount ($)</label><input type="number" id="bill-amount" placeholder="0.00" step="0.01" min="0"></div>
+      <div class="form-group"><label>Frequency</label>
+        <select id="bill-freq">
+          <option value="weekly">Weekly</option>
+          <option value="biweekly">Bi-weekly</option>
+          <option value="monthly" selected>Monthly</option>
+          <option value="bimonthly">Bi-monthly</option>
+          <option value="quarterly">Quarterly</option>
+          <option value="biannual">Bi-annual</option>
+          <option value="annual">Annual</option>
+        </select>
+      </div>
+      <div class="form-group"><label>Next Due Date</label><input type="date" id="bill-due"></div>
+      <div class="form-group"><label>Who</label>
+        <select id="bill-who"><option value="Both">Both</option><option value="Crystal">Crystal</option><option value="Aaron">Aaron</option></select>
+      </div>
+      <div class="form-group"><label>Card</label>
+        <select id="bill-card">
+          <option value="Credit (Chase)">Chase</option>
+          <option value="Credit (Amex)">Amex</option>
+          <option value="Debit (SoFi)">SoFi</option>
+          <option value="Auto-pay">Auto-pay</option>
+          <option value="Other">Other</option>
+        </select>
+      </div>
+      <div class="form-group"><label>Category</label><select id="bill-cat"><option value="">— Select —</option></select></div>
+      <div class="form-group"><label>Note (optional)</label><input type="text" id="bill-note" placeholder="e.g. shared family plan"></div>
+      <div class="form-group full" style="margin-top:4px;"><button class="btn btn-primary" onclick="addBill()">Add Bill</button></div>
+    </div>
   </div>
+
+  <!-- Bill list by frequency -->
+  <div id="bills-list"></div>
 </div>
 </main>
 <div id="toast"></div>
@@ -648,14 +695,15 @@ async function showView(id){
   document.querySelectorAll(".nav-tab").forEach(t=>t.classList.remove("active"));
   document.getElementById("view-"+id).classList.add("active");
   const tabs=document.querySelectorAll(".nav-tab");
-  ["dashboard","add","transactions","import","contributions","hobbies","travel","settings","fitness"].forEach((n,i)=>{if(n===id)tabs[i].classList.add("active");});
+  ["dashboard","transactions","contributions","hobbies","travel","bills","settings"].forEach((n,i)=>{if(n===id)tabs[i].classList.add("active");});
   await loadAllData();
   if(id==="dashboard")renderDashboard();
   if(id==="transactions")renderTransactions();
   if(id==="contributions")renderContributions();
   if(id==="hobbies")renderHobbies();
   if(id==="travel")renderTravel();
-  if(id==="fitness")renderFitness();
+  if(id==="bills")renderBills();
+  if(id==="settings")renderSettings();
   if(id==="settings")renderSettings();
   if(id==="import"&&importRows.length)renderReviewRows();
 }
@@ -833,18 +881,163 @@ function renderDashboard(){
   const ty=thisYear(),tyT=txnCache.filter(t=>t.year===ty),tyTot=tyT.reduce((s,t)=>s+parseFloat(t.amount),0);
   const tm=thisMonthLabel(),tmT=txnCache.filter(t=>t.month===tm),tmTot=tmT.reduce((s,t)=>s+parseFloat(t.amount),0);
   const lm=lastMonthLabel(),lmT=txnCache.filter(t=>t.month===lm),lmTot=lmT.reduce((s,t)=>s+parseFloat(t.amount),0);
+
   document.getElementById("dash-primary-stats").innerHTML=`
     <div class="stat-tile"><div class="stat-label">This Year</div><div class="stat-value">${fmtMoney(tyTot)}</div><div class="stat-sub">${tyT.length} transactions</div></div>
     <div class="stat-tile"><div class="stat-label">This Month</div><div class="stat-value v2">${fmtMoney(tmTot)}</div><div class="stat-sub">${tmT.length} transactions</div></div>
     <div class="stat-tile"><div class="stat-label">Last Month</div><div class="stat-value v3">${fmtMoney(lmTot)}</div><div class="stat-sub">${lmT.length} transactions</div></div>`;
+
   document.getElementById("dash-running-wrap").innerHTML=`<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:2px;">
     <div class="stat-tile dim" style="display:inline-flex;gap:14px;align-items:center;padding:9px 14px;border-radius:8px;flex:1;min-width:160px;"><span style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:0.08em;">All Time</span><span style="font-family:var(--font-display);font-size:17px;color:var(--text2)">${fmtMoney(allTimeTotal)}</span><span style="font-size:10px;color:var(--text3)">${txnCache.length} txns</span></div>
     <div class="stat-tile dim" style="display:inline-flex;gap:14px;align-items:center;padding:9px 14px;border-radius:8px;flex:1;min-width:160px;"><span style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:0.08em;">Filtered Total</span><span style="font-family:var(--font-display);font-size:17px;color:var(--text2)">${fmtMoney(filteredTotal)}</span><span style="font-size:10px;color:var(--text3)">${filtered.length} txns</span></div>
   </div>`;
+
+  // Contributions overview
+  renderDashContrib();
+
+  // Category bars
   const cats=getCatTotals(filtered).sort((a,b)=>b.total-a.total),maxC=cats[0]?.total||1;
   document.getElementById("category-bars").innerHTML=cats.map((c,i)=>`<div class="bar-row"><div class="bar-label" title="${c.cat}">${c.cat}</div><div class="bar-track"><div class="bar-fill" style="width:${(c.total/maxC*100).toFixed(1)}%;background:${SPEND_COLORS[i%SPEND_COLORS.length]}"></div></div><div class="bar-amount">${fmtMoney(c.total)}</div></div>`).join("")||'<div class="empty">No data</div>';
-  drawDonut(filtered);drawTrend(txnCache);
+
+  drawDonut(filtered);
+  drawTrend(txnCache);
+
+  // Populate compare month selector
+  const months=[...new Set(txnCache.map(t=>t.month))].filter(Boolean).filter(m=>m!==tm).sort((a,b)=>new Date(b)-new Date(a));
+  const cm=document.getElementById("d-compare-month");
+  if(cm){const cur=cm.value;cm.innerHTML='<option value="">Last Month</option>';months.forEach(m=>cm.innerHTML+=`<option value="${m}">${m}</option>`);if(cur)cm.value=cur;}
+
+  // Populate cat-by-month selector
+  const cbm=document.getElementById("d-cat-month");
+  if(cbm){const cur2=cbm.value;cbm.innerHTML=`<option value="">This Month (${tm})</option>`;[...new Set(txnCache.map(t=>t.month))].filter(Boolean).sort((a,b)=>new Date(b)-new Date(a)).forEach(m=>cbm.innerHTML+=`<option value="${m}">${m}</option>`);if(cur2)cbm.value=cur2;}
+
+  renderCompareChart();
+  renderCatByMonth();
+
   document.getElementById("recent-table").innerHTML=buildTxnTable([...txnCache].sort((a,b)=>b.date.localeCompare(a.date)).slice(0,8),false);
+}
+
+function renderDashContrib(){
+  const allWeeks=[...generateWeeksForYear(2025),...generateWeeksForYear(2026)];
+  const weeks2026=generateWeeksForYear(2026);
+  const cm=buildContribMap();
+  const goals=getGoalsForYear(2026);
+
+  // Year total (2026)
+  let yearTotal=0;
+  ACCOUNTS.forEach(acc=>{yearTotal+=weeks2026.reduce((s,w)=>{const c=cm[`${acc.key}_${w.dateStr}`];return s+(c&&(c.checked===true||c.checked==="true")?parseFloat(c.amount||0):0);},0);});
+
+  // All time
+  let allTime=0;
+  ACCOUNTS.forEach(acc=>{allTime+=allWeeks.reduce((s,w)=>{const c=cm[`${acc.key}_${w.dateStr}`];return s+(c&&(c.checked===true||c.checked==="true")?parseFloat(c.amount||0):0);},0);});
+
+  // Goal total
+  const goalTotal=Object.values(goals).reduce((s,v)=>s+(v||0),0);
+
+  // Crystal vs Aaron this year
+  const crystalAccs=["crystal401k","crystalIRA","hsa","crystalBrok"];
+  const aaronAccs=["aaron401k","aaronIRA","aaronBrok"];
+  let crystalYr=0,aaronYr=0;
+  ACCOUNTS.forEach(acc=>{
+    const t=weeks2026.reduce((s,w)=>{const c=cm[`${acc.key}_${w.dateStr}`];return s+(c&&(c.checked===true||c.checked==="true")?parseFloat(c.amount||0):0);},0);
+    if(crystalAccs.includes(acc.key))crystalYr+=t;
+    if(aaronAccs.includes(acc.key))aaronYr+=t;
+  });
+
+  document.getElementById("dash-contrib-stats").innerHTML=`
+    <div class="stat-tile"><div class="stat-label">2026 Total</div><div class="stat-value">${fmtMoney(yearTotal)}</div><div class="stat-sub">of ${fmtMoney(goalTotal)} goal · ${goalTotal>0?(yearTotal/goalTotal*100).toFixed(1):0}%</div></div>
+    <div class="stat-tile"><div class="stat-label">Crystal 2026</div><div class="stat-value" style="color:var(--crystal-light)">${fmtMoney(crystalYr)}</div><div class="stat-sub">across all accounts</div></div>
+    <div class="stat-tile"><div class="stat-label">Aaron 2026</div><div class="stat-value" style="color:var(--aaron-light)">${fmtMoney(aaronYr)}</div><div class="stat-sub">across all accounts</div></div>
+    <div class="stat-tile dim"><div class="stat-label">All Time</div><div class="stat-value dim">${fmtMoney(allTime)}</div><div class="stat-sub">contributions ever logged</div></div>`;
+}
+
+function renderCompareChart(){
+  const wrap=document.querySelector("#compare-canvas")?.parentElement;
+  const cv=document.getElementById("compare-canvas");
+  if(!cv||!wrap)return;
+
+  const tm=thisMonthLabel(),lm=lastMonthLabel();
+  const compareMonthEl=document.getElementById("d-compare-month");
+  const compareMonth=compareMonthEl?.value||lm;
+
+  // Get daily cumulative spend for this month and compare month
+  const thisMonthTxns=txnCache.filter(t=>t.month===tm);
+  const cmpMonthTxns=txnCache.filter(t=>t.month===compareMonth);
+  if(!thisMonthTxns.length&&!cmpMonthTxns.length){cv.style.display="none";return;}
+  cv.style.display="block";
+
+  // Build day-of-month buckets (1-31)
+  function dayBuckets(txns){
+    const b={};txns.forEach(t=>{const d=parseInt(t.date.split("-")[2]);b[d]=(b[d]||0)+parseFloat(t.amount);});return b;
+  }
+  const thisBuckets=dayBuckets(thisMonthTxns),cmpBuckets=dayBuckets(cmpMonthTxns);
+
+  // Find max day
+  const today=new Date().getDate();
+  const maxDay=Math.max(31,today,...Object.keys(cmpBuckets).map(Number));
+
+  // Build cumulative arrays
+  function cumulative(buckets,maxD){
+    const arr=[];let running=0;
+    for(let d=1;d<=maxD;d++){running+=(buckets[d]||0);arr.push(running);}
+    return arr;
+  }
+  const thisCum=cumulative(thisBuckets,maxDay).slice(0,today);// only up to today for this month
+  const cmpCum=cumulative(cmpBuckets,maxDay);
+  const days=Array.from({length:maxDay},(_,i)=>i+1);
+
+  const dpr=window.devicePixelRatio||1,dispW=Math.max(wrap.offsetWidth||600,400),dispH=180;
+  cv.style.width=dispW+"px";cv.style.height=dispH+"px";cv.width=Math.round(dispW*dpr);cv.height=Math.round(dispH*dpr);
+  const ctx=cv.getContext("2d");ctx.scale(dpr,dpr);ctx.clearRect(0,0,dispW,dispH);
+
+  const allVals=[...thisCum,...cmpCum].filter(v=>v>0);
+  const maxV=Math.max(...allVals)*1.2||1;
+  const padL=68,padR=24,padT=24,padB=32,W=dispW,chartW=W-padL-padR,chartH=dispH-padT-padB;
+  const xStep=maxDay>1?chartW/(maxDay-1):chartW;
+
+  // Grid
+  [0,.5,1].forEach(p=>{const y=padT+chartH*(1-p);ctx.beginPath();ctx.moveTo(padL,y);ctx.lineTo(W-padR,y);ctx.strokeStyle="rgba(255,255,255,0.04)";ctx.lineWidth=1;ctx.stroke();ctx.fillStyle="#5e574f";ctx.font="10px 'DM Mono'";ctx.textAlign="right";ctx.textBaseline="middle";ctx.fillText(fmtMoney(maxV*p),padL-6,y);});
+
+  function drawLine(cum,daysArr,color,dashed){
+    const pts=cum.map((v,i)=>[padL+(daysArr[i]-1)*xStep,padT+chartH*(1-v/maxV)]);
+    if(!pts.length)return;
+    ctx.beginPath();pts.forEach(([x,y],i)=>{if(i===0)ctx.moveTo(x,y);else{const p=pts[i-1],cx2=(p[0]+x)/2;ctx.bezierCurveTo(cx2,p[1],cx2,y,x,y);}});
+    if(dashed)ctx.setLineDash([5,4]);else ctx.setLineDash([]);
+    ctx.strokeStyle=color;ctx.lineWidth=2.5;ctx.stroke();ctx.setLineDash([]);
+    // End dot
+    const[lx,ly]=pts[pts.length-1];ctx.beginPath();ctx.arc(lx,ly,4,0,2*Math.PI);ctx.fillStyle=color;ctx.fill();
+  }
+
+  drawLine(cmpCum,days,"#8b7aa0",true);// compare = dashed purple
+  drawLine(thisCum,days.slice(0,today),"#c47a6a",false);// this month = solid red
+
+  // Day labels
+  [1,7,14,21,28].filter(d=>d<=maxDay).forEach(d=>{const x=padL+(d-1)*xStep;ctx.fillStyle="#5e574f";ctx.font="10px 'DM Mono'";ctx.textAlign="center";ctx.textBaseline="top";ctx.fillText(d,x,padT+chartH+6);});
+
+  // Today line
+  if(today<=maxDay){const x=padL+(today-1)*xStep;ctx.beginPath();ctx.moveTo(x,padT);ctx.lineTo(x,padT+chartH);ctx.strokeStyle="rgba(255,255,255,0.12)";ctx.lineWidth=1;ctx.stroke();}
+
+  // Legend
+  document.getElementById("compare-legend").innerHTML=`
+    <div style="display:flex;align-items:center;gap:6px;font-size:11px;"><div style="width:20px;height:3px;background:#c47a6a;border-radius:2px;"></div><span>${tm} (${fmtMoney(thisCum[thisCum.length-1]||0)} so far)</span></div>
+    <div style="display:flex;align-items:center;gap:6px;font-size:11px;"><div style="width:20px;height:2px;background:#8b7aa0;border-radius:2px;border-top:2px dashed #8b7aa0;"></div><span>${compareMonth} (${fmtMoney(cmpCum[cmpCum.length-1]||0)} total)</span></div>`;
+}
+
+function renderCatByMonth(){
+  const sel=document.getElementById("d-cat-month");
+  const selectedMonth=sel?.value||thisMonthLabel();
+  const txns=txnCache.filter(t=>t.month===selectedMonth);
+  const cats=getCatTotals(txns).sort((a,b)=>b.total-a.total).slice(0,10);
+  const total=txns.reduce((s,t)=>s+parseFloat(t.amount),0);
+  const maxC=cats[0]?.total||1;
+  document.getElementById("cat-by-month").innerHTML=cats.length
+    ?cats.map((c,i)=>`<div class="bar-row" style="margin-bottom:6px;">
+        <div class="bar-label" title="${c.cat}">${c.cat}</div>
+        <div class="bar-track"><div class="bar-fill" style="width:${(c.total/maxC*100).toFixed(1)}%;background:${SPEND_COLORS[i%SPEND_COLORS.length]}"></div></div>
+        <div class="bar-amount">${fmtMoney(c.total)}</div>
+        <div style="width:36px;text-align:right;font-size:10px;color:var(--text3);flex-shrink:0;">${total>0?(c.total/total*100).toFixed(0):0}%</div>
+      </div>`).join("")
+    :'<div class="empty">No data for this month</div>';
 }
 function getCatTotals(txns){const m={};txns.forEach(t=>{m[t.category]=(m[t.category]||0)+parseFloat(t.amount);});return Object.entries(m).map(([cat,total])=>({cat,total}));}
 function drawDonut(txns){
@@ -1441,186 +1634,166 @@ function refreshGrandTotals(){
   [["ring-crystal-total",crystalYear,crystalGoal,"#7a9e7e"],["ring-aaron-total",aaronYear,aaronGoal,"#8b7aa0"],["ring-grand-total",grandYear,grandGoal,"#c4a882"]].forEach(([elemId,tot,goal,col])=>{const cv=document.getElementById(elemId);if(cv)drawRing(cv,goal>0?tot/goal:0,col,60);});
 }
 
-// ── FITNESS ───────────────────────────────────────────────────────────────────
-// All stored in localStorage — standalone, not connected to Supabase
-const DAYS=["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"];
-
-function loadFitnessGoals(person){
-  try{return JSON.parse(localStorage.getItem(`fitness_goals_${person}`)||"null")||getDefaultFitnessGoals();}catch{return getDefaultFitnessGoals();}
-}
-function saveFitnessGoals(person,goals){localStorage.setItem(`fitness_goals_${person}`,JSON.stringify(goals));}
-function getDefaultFitnessGoals(){
-  return{targetDays:4,rewardPerDay:5,rewardPerWeek:10,bonusThreshold:5,bonusAmount:15};
-}
-function loadFitnessWeek(person,weekKey){
-  try{return JSON.parse(localStorage.getItem(`fitness_week_${person}_${weekKey}`)||"null")||{};}catch{return{};}
-}
-function saveFitnessWeek(person,weekKey,data){localStorage.setItem(`fitness_week_${person}_${weekKey}`,JSON.stringify(data));}
-
-let fitnessWeekOffset=0;
-
-function getFitnessWeekKey(offset){
-  const now=new Date(),day=now.getDay(),diff=now.getDate()-day+(day===0?-6:1);
-  const mon=new Date(now);mon.setDate(diff+offset*7);
-  return mon.toISOString().slice(0,10);
-}
-function getFitnessWeekLabel(weekKey){
-  const mon=new Date(weekKey+"T12:00:00"),sun=new Date(mon);sun.setDate(sun.getDate()+6);
-  const fmt=d=>d.toLocaleDateString("en-US",{month:"short",day:"numeric"});
-  return`${fmt(mon)} – ${fmt(sun)}`;
-}
-function getWeekDates(weekKey){
-  const dates=[];
-  for(let i=0;i<7;i++){const d=new Date(weekKey+"T12:00:00");d.setDate(d.getDate()+i);dates.push(d.toISOString().slice(0,10));}
-  return dates;
+// ── PANEL TOGGLE (Add / Import) ───────────────────────────────────────────────
+function togglePanel(id){
+  const el=document.getElementById(id);if(!el)return;
+  const isOpen=el.style.display!=="none";
+  // Close all panels first
+  ["add-panel","import-panel"].forEach(p=>{const pe=document.getElementById(p);if(pe)pe.style.display="none";});
+  if(!isOpen)el.style.display="block";
 }
 
-function calcEarned(person,weekKey){
-  const goals=loadFitnessGoals(person),data=loadFitnessWeek(person,weekKey);
-  const checked=DAYS.filter((_,i)=>data[`day_${i}_checked`]).length;
-  if(checked===0)return{checked,earned:0,metGoal:false,gotBonus:false};
-  const earned=checked*goals.rewardPerDay;
-  const metGoal=checked>=goals.targetDays;
-  const gotBonus=checked>=goals.bonusThreshold;
-  const total=earned+(metGoal?goals.rewardPerWeek:0)+(gotBonus&&goals.bonusThreshold>goals.targetDays?goals.bonusAmount:0);
-  return{checked,earned:total,metGoal,gotBonus};
+// ── BILLS ─────────────────────────────────────────────────────────────────────
+// Stored in Supabase app_settings under key "bills"
+let BILLS=[];
+
+const FREQ_LABELS={weekly:"Weekly",biweekly:"Bi-weekly",monthly:"Monthly",bimonthly:"Bi-monthly",quarterly:"Quarterly",biannual:"Bi-annual",annual:"Annual"};
+const FREQ_MONTHLY={weekly:52/12,biweekly:26/12,monthly:1,bimonthly:0.5,quarterly:1/3,biannual:1/6,annual:1/12};
+
+async function loadBills(){
+  try{
+    const{data,error}=await sb.from("app_settings").select("value").eq("key","bills").single();
+    if(!error&&data&&Array.isArray(data.value))BILLS=data.value;
+  }catch{}
 }
 
-function calcAllTimeEarned(person){
-  let total=0;
-  // scan all localStorage keys
-  for(let i=0;i<localStorage.length;i++){
-    const k=localStorage.key(i);
-    if(k&&k.startsWith(`fitness_week_${person}_`)){
-      const weekKey=k.replace(`fitness_week_${person}_`,"");
-      total+=calcEarned(person,weekKey).earned;
-    }
+async function saveBills(){
+  await saveSetting("bills",BILLS);
+}
+
+function nextDueDate(dateStr,freq){
+  const d=new Date(dateStr+"T12:00:00");const today=new Date();today.setHours(12,0,0,0);
+  const add={weekly:7,biweekly:14,monthly:0,bimonthly:0,quarterly:0,biannual:0,annual:0};
+  while(d<=today){
+    if(freq==="weekly"||freq==="biweekly"){d.setDate(d.getDate()+add[freq]);}
+    else if(freq==="monthly"){d.setMonth(d.getMonth()+1);}
+    else if(freq==="bimonthly"){d.setMonth(d.getMonth()+2);}
+    else if(freq==="quarterly"){d.setMonth(d.getMonth()+3);}
+    else if(freq==="biannual"){d.setMonth(d.getMonth()+6);}
+    else if(freq==="annual"){d.setFullYear(d.getFullYear()+1);}
+    else break;
   }
-  return total;
+  return d.toISOString().slice(0,10);
 }
 
-function renderFitness(){
-  const weekKey=getFitnessWeekKey(fitnessWeekOffset);
-  document.getElementById("fitness-week-label").textContent=getFitnessWeekLabel(weekKey);
-  renderFitnessGoalsForm("Crystal","crystal");
-  renderFitnessGoalsForm("Aaron","aaron");
-  renderFitnessWeekLog("Crystal","crystal",weekKey);
-  renderFitnessWeekLog("Aaron","aaron",weekKey);
-  renderFitnessTotals();
+function daysUntil(dateStr){
+  const today=new Date();today.setHours(0,0,0,0);
+  const d=new Date(dateStr+"T12:00:00");
+  return Math.ceil((d-today)/86400000);
 }
 
-function renderFitnessGoalsForm(name,person){
-  const goals=loadFitnessGoals(person);
-  const color=person==="crystal"?"var(--crystal-light)":"var(--aaron-light)";
-  const el=document.getElementById(`${person}-goals-form`);if(!el)return;
-  el.innerHTML=`
-    <div class="fitness-goal-row">
-      <span class="fitness-goal-label">Workout days goal per week</span>
-      <input class="fitness-goal-input" type="number" min="1" max="7" value="${goals.targetDays}" id="goal-${person}-targetDays" oninput="saveFitnessGoalField('${person}','targetDays',this.value);renderFitness()">
-    </div>
-    <div class="fitness-goal-row">
-      <span class="fitness-goal-label">$ earned per workout day</span>
-      <input class="fitness-goal-input" type="number" min="0" step="0.50" value="${goals.rewardPerDay}" id="goal-${person}-rewardPerDay" oninput="saveFitnessGoalField('${person}','rewardPerDay',this.value);renderFitnessTotals()">
-    </div>
-    <div class="fitness-goal-row">
-      <span class="fitness-goal-label">Bonus $ for hitting weekly goal</span>
-      <input class="fitness-goal-input" type="number" min="0" step="0.50" value="${goals.rewardPerWeek}" id="goal-${person}-rewardPerWeek" oninput="saveFitnessGoalField('${person}','rewardPerWeek',this.value);renderFitnessTotals()">
-    </div>
-    <div class="fitness-goal-row">
-      <span class="fitness-goal-label">Extra bonus at __ days (0 = off)</span>
-      <input class="fitness-goal-input" type="number" min="0" max="7" value="${goals.bonusThreshold}" id="goal-${person}-bonusThreshold" oninput="saveFitnessGoalField('${person}','bonusThreshold',this.value);renderFitnessTotals()">
-    </div>
-    <div class="fitness-goal-row">
-      <span class="fitness-goal-label">Extra bonus amount $</span>
-      <input class="fitness-goal-input" type="number" min="0" step="0.50" value="${goals.bonusAmount}" id="goal-${person}-bonusAmount" oninput="saveFitnessGoalField('${person}','bonusAmount',this.value);renderFitnessTotals()">
-    </div>
-    <div style="margin-top:10px;font-size:11px;color:var(--text3);">
-      Max possible per week: <span style="color:${color};font-weight:500;">${fmtMoney(7*goals.rewardPerDay+goals.rewardPerWeek+(goals.bonusThreshold>0?goals.bonusAmount:0))}</span>
-    </div>`;
+async function addBill(){
+  const name=document.getElementById("bill-name").value.trim();
+  const amount=parseFloat(document.getElementById("bill-amount").value)||0;
+  const freq=document.getElementById("bill-freq").value;
+  const due=document.getElementById("bill-due").value;
+  const who=document.getElementById("bill-who").value;
+  const card=document.getElementById("bill-card").value;
+  const cat=document.getElementById("bill-cat").value;
+  const note=document.getElementById("bill-note").value.trim();
+  if(!name||!amount||!due){showToast("Name, amount, and due date are required",true);return;}
+  const bill={id:`bill_${Date.now()}`,name,amount,freq,due,who,card,cat,note,paidThisCycle:false};
+  BILLS.push(bill);
+  await saveBills();
+  // Clear form
+  ["bill-name","bill-amount","bill-note"].forEach(id=>document.getElementById(id).value="");
+  document.getElementById("bill-due").value="";
+  document.getElementById("bill-freq").value="monthly";
+  showToast("Bill added ✓");renderBills();
 }
 
-function saveFitnessGoalField(person,field,val){
-  const goals=loadFitnessGoals(person);
-  goals[field]=parseFloat(val)||0;
-  saveFitnessGoals(person,goals);
+async function removeBill(id){
+  if(!confirm("Remove this bill?"))return;
+  BILLS=BILLS.filter(b=>b.id!==id);
+  await saveBills();showToast("Removed");renderBills();
 }
 
-function renderFitnessWeekLog(name,person,weekKey){
-  const data=loadFitnessWeek(person,weekKey),goals=loadFitnessGoals(person);
-  const color=person==="crystal"?"var(--crystal-light)":"var(--aaron-light)";
-  const accentColor=person==="crystal"?"var(--crystal)":"var(--aaron)";
-  const el=document.getElementById(`${person}-week-log`);if(!el)return;
+async function toggleBillPaid(id){
+  const b=BILLS.find(b=>b.id===id);if(!b)return;
+  b.paidThisCycle=!b.paidThisCycle;
+  await saveBills();renderBills();
+}
 
-  el.innerHTML=DAYS.map((day,i)=>{
-    const checked=!!data[`day_${i}_checked`];
-    const workoutType=data[`day_${i}_type`]||"";
-    const note=data[`day_${i}_note`]||"";
-    return`<div class="day-row">
-      <div class="day-label">${day.slice(0,3)}</div>
-      <input type="checkbox" class="day-check" style="accent-color:${accentColor}" ${checked?"checked":""}
-        onchange="saveDayField('${person}','${weekKey}',${i},'checked',this.checked)">
-      <div class="day-type"><input type="text" placeholder="Workout type…" value="${workoutType}"
-        oninput="saveDayField('${person}','${weekKey}',${i},'type',this.value)"
-        style="${checked?'':'opacity:0.35'}" ${checked?'':'disabled'}></div>
-      <div class="day-note"><input type="text" placeholder="Note…" value="${note}"
-        oninput="saveDayField('${person}','${weekKey}',${i},'note',this.value)"
-        style="${checked?'':'opacity:0.35'}" ${checked?'':'disabled'}></div>
+function renderBills(){
+  // Populate category dropdown
+  const bc=document.getElementById("bill-cat");
+  if(bc&&bc.options.length<=1){CATEGORIES.forEach(c=>bc.innerHTML+=`<option value="${c}">${c}</option>`);}
+
+  if(!BILLS.length){
+    document.getElementById("bills-upcoming").innerHTML='<div class="empty">No bills yet — add one below</div>';
+    document.getElementById("bills-summary").innerHTML="";
+    document.getElementById("bills-list").innerHTML="";
+    return;
+  }
+
+  // Compute next due for each bill
+  const withDue=BILLS.map(b=>({...b,nextDue:nextDueDate(b.due,b.freq),daysLeft:0}));
+  withDue.forEach(b=>b.daysLeft=daysUntil(b.nextDue));
+  withDue.sort((a,b)=>a.nextDue.localeCompare(b.nextDue));
+
+  // Upcoming (next 30 days)
+  const upcoming=withDue.filter(b=>b.daysLeft<=30&&b.daysLeft>=0);
+  document.getElementById("bills-upcoming").innerHTML=upcoming.length
+    ?upcoming.map(b=>{
+        const urgency=b.daysLeft<=3?"var(--danger)":b.daysLeft<=7?"var(--warn)":"var(--text)";
+        return`<div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:12px 14px;margin-bottom:8px;display:flex;align-items:center;gap:14px;flex-wrap:wrap;">
+          <div style="flex:1;min-width:140px;">
+            <div style="font-weight:500;font-size:13px;">${b.name}</div>
+            <div style="font-size:11px;color:var(--text3);margin-top:2px;">${FREQ_LABELS[b.freq]||b.freq} · ${b.card} · ${b.who}</div>
+          </div>
+          <div style="font-family:var(--font-display);font-size:18px;color:var(--spend1);">${fmtMoney(b.amount)}</div>
+          <div style="text-align:right;min-width:80px;">
+            <div style="color:${urgency};font-size:12px;font-weight:500;">${b.daysLeft===0?"Today":b.daysLeft===1?"Tomorrow":`${b.daysLeft} days`}</div>
+            <div style="font-size:10px;color:var(--text3);margin-top:1px;">${fmtDate(b.nextDue)}</div>
+          </div>
+          <button onclick="toggleBillPaid('${b.id}')" class="btn btn-sm ${b.paidThisCycle?"btn-secondary":"btn-primary"}" style="flex-shrink:0;">${b.paidThisCycle?"✓ Paid":"Mark Paid"}</button>
+        </div>`;
+      }).join("")
+    :'<div style="color:var(--text3);font-size:12px;padding:10px 0;">Nothing due in the next 30 days</div>';
+
+  // Summary tiles
+  const monthlyTotal=BILLS.reduce((s,b)=>s+(b.amount*(FREQ_MONTHLY[b.freq]||1)),0);
+  const annualTotal=monthlyTotal*12;
+  const paidCount=BILLS.filter(b=>b.paidThisCycle).length;
+  document.getElementById("bills-summary").innerHTML=`
+    <div class="stat-tile"><div class="stat-label">Monthly Equivalent</div><div class="stat-value">${fmtMoney(monthlyTotal)}</div><div class="stat-sub">fixed recurring / month</div></div>
+    <div class="stat-tile"><div class="stat-label">Annual Equivalent</div><div class="stat-value v2">${fmtMoney(annualTotal)}</div><div class="stat-sub">across all bills</div></div>
+    <div class="stat-tile"><div class="stat-label">Paid This Cycle</div><div class="stat-value v3">${paidCount} / ${BILLS.length}</div><div class="stat-sub">bills marked paid</div></div>`;
+
+  // Group by frequency
+  const groups={};
+  withDue.forEach(b=>{if(!groups[b.freq])groups[b.freq]=[];groups[b.freq].push(b);});
+  const freqOrder=["weekly","biweekly","monthly","bimonthly","quarterly","biannual","annual"];
+  document.getElementById("bills-list").innerHTML=freqOrder.filter(f=>groups[f]).map(f=>{
+    const bills=groups[f];
+    const subtotal=bills.reduce((s,b)=>s+b.amount,0);
+    return`<div class="card section">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+        <div class="card-title" style="margin-bottom:0;">${FREQ_LABELS[f]}</div>
+        <div style="font-size:12px;color:var(--text2);">${fmtMoney(subtotal)} / cycle</div>
+      </div>
+      <div class="table-wrap"><table style="min-width:500px;"><thead><tr><th>Name</th><th>Amount</th><th>Next Due</th><th>Who</th><th>Card</th><th>Category</th><th>Status</th><th></th></tr></thead><tbody>
+      ${bills.map(b=>`<tr style="${b.paidThisCycle?"opacity:0.5":""}">
+        <td><strong>${b.name}</strong>${b.note?`<div style="font-size:10px;color:var(--text3);">${b.note}</div>`:""}</td>
+        <td class="amount-cell">${fmtMoney(b.amount)}</td>
+        <td style="white-space:nowrap;color:var(--text2);">${fmtDate(b.nextDue)}<div style="font-size:10px;color:${b.daysLeft<=7?"var(--warn)":"var(--text3)"};">${b.daysLeft<=0?"Due now":b.daysLeft===1?"1 day":b.daysLeft<=30?`${b.daysLeft} days`:""}</div></td>
+        <td><span class="tag ${(b.who||"").toLowerCase()}">${b.who||""}</span></td>
+        <td style="font-size:11px;color:var(--text3);">${b.card||""}</td>
+        <td style="font-size:11px;">${b.cat||""}</td>
+        <td><button onclick="toggleBillPaid('${b.id}')" class="btn btn-sm ${b.paidThisCycle?"btn-secondary":"btn-primary"}" style="white-space:nowrap;">${b.paidThisCycle?"✓ Paid":"Mark Paid"}</button></td>
+        <td><button class="btn-danger" onclick="removeBill('${b.id}')">✕</button></td>
+      </tr>`).join("")}
+      </tbody></table></div>
     </div>`;
   }).join("");
-
-  // Summary
-  const{checked,earned,metGoal,gotBonus}=calcEarned(person,weekKey);
-  const pct=Math.min(checked/goals.targetDays,1);
-  const sumEl=document.getElementById(`${person}-week-summary`);if(!sumEl)return;
-  sumEl.innerHTML=`
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
-      <span style="font-size:12px;color:var(--text2)">${checked} / ${goals.targetDays} days</span>
-      <span class="earned-badge ${person}" style="font-size:14px;">${fmtMoney(earned)} earned</span>
-    </div>
-    <div class="progress-bar-wrap">
-      <div class="progress-bar-fill" style="width:${(pct*100).toFixed(0)}%;background:${accentColor};"></div>
-    </div>
-    ${metGoal?`<div style="font-size:11px;color:var(--crystal-light);margin-top:6px;">✓ Weekly goal hit! +${fmtMoney(goals.rewardPerWeek)} bonus</div>`:''}
-    ${gotBonus&&goals.bonusThreshold>goals.targetDays?`<div style="font-size:11px;color:var(--accent);margin-top:3px;">⭐ Extra bonus hit! +${fmtMoney(goals.bonusAmount)}</div>`:''}`;
 }
-
-function saveDayField(person,weekKey,dayIdx,field,val){
-  const data=loadFitnessWeek(person,weekKey);
-  data[`day_${dayIdx}_${field}`]=val;
-  saveFitnessWeek(person,weekKey,data);
-  renderFitnessWeekLog(person==="Crystal"?"Crystal":person==="Aaron"?"Aaron":person,person,weekKey);
-  renderFitnessTotals();
-}
-
-function renderFitnessTotals(){
-  const crystalAll=calcAllTimeEarned("Crystal"),aaronAll=calcAllTimeEarned("Aaron");
-  const weekKey=getFitnessWeekKey(fitnessWeekOffset);
-  const cWeek=calcEarned("Crystal",weekKey),aWeek=calcEarned("Aaron",weekKey);
-  const el=document.getElementById("fitness-totals");if(!el)return;
-  el.innerHTML=`
-    <div style="padding:4px 0;">
-      <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:6px;">Crystal</div>
-      <div style="font-family:var(--font-display);font-size:28px;color:var(--crystal-light);">${fmtMoney(crystalAll)}</div>
-      <div style="font-size:11px;color:var(--text3);margin-top:3px;">earned to Crystal Splurge account</div>
-      <div style="font-size:12px;color:var(--text2);margin-top:8px;">This week: <span style="color:var(--crystal-light)">${fmtMoney(cWeek.earned)}</span></div>
-    </div>
-    <div style="padding:4px 0;">
-      <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:6px;">Aaron</div>
-      <div style="font-family:var(--font-display);font-size:28px;color:var(--aaron-light);">${fmtMoney(aaronAll)}</div>
-      <div style="font-size:11px;color:var(--text3);margin-top:3px;">earned to Aaron Splurge account</div>
-      <div style="font-size:12px;color:var(--text2);margin-top:8px;">This week: <span style="color:var(--aaron-light)">${fmtMoney(aWeek.earned)}</span></div>
-    </div>`;
-}
-
-function fitnessPrevWeek(){fitnessWeekOffset--;renderFitness();}
-function fitnessNextWeek(){if(fitnessWeekOffset<0)fitnessWeekOffset++;renderFitness();}
-function fitnessThisWeek(){fitnessWeekOffset=0;renderFitness();}
 
 function showToast(msg,isError=false){const t=document.getElementById("toast");t.textContent=msg;t.className=isError?"error":"";t.classList.add("show");setTimeout(()=>t.classList.remove("show"),2500);}
 
 // INIT
 document.getElementById("f-date").value=new Date().toISOString().slice(0,10);
-loadAllData().then(()=>renderDashboard());
+document.getElementById("bill-due").value=new Date().toISOString().slice(0,10);
+loadAllData().then(async()=>{await loadBills();renderDashboard();});
 sb.channel("txn-rt").on("postgres_changes",{event:"*",schema:"public",table:"transactions"},async()=>{await loadAllData();const av=document.querySelector(".view.active")?.id;if(av==="view-dashboard")renderDashboard();if(av==="view-transactions")renderTransactions();}).subscribe();
 </script>
 </body>
