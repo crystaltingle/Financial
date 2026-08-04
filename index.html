@@ -277,66 +277,76 @@ td.date-col,th.date-col{width:110px;white-space:nowrap;}
 <div id="view-dashboard" class="view active">
   <div class="page-header"><h1>Dashboard</h1><p>Spending overview & trends</p></div>
 
-  <!-- SPENDING STATS -->
-  <div class="stat-row" id="dash-primary-stats"><div class="loading" style="grid-column:1/-1">Loading…</div></div>
-  <div id="dash-running-wrap" style="margin-bottom:14px;"></div>
-
   <!-- CONTRIBUTIONS OVERVIEW -->
   <div class="card section">
     <div class="card-title">Contributions Overview</div>
     <div id="dash-contrib-stats" class="stat-row" style="margin-bottom:0;"></div>
   </div>
 
-  <!-- SPENDING BY CATEGORY + DONUT -->
-  <div class="two-col section">
-    <div class="card">
-      <div class="card-title">Spending by Category</div>
-      <div class="filter-row">
-        <select id="d-year" onchange="updateDependentFilters('d');renderDashboard()"><option value="all">All Years</option></select>
-        <select id="d-month" onchange="renderDashboard()"><option value="all">All Months</option></select>
-        <select id="d-week" onchange="renderDashboard()"><option value="all">All Weeks</option></select>
-        <select id="d-who" onchange="renderDashboard()"><option value="all">All</option><option value="Crystal">Crystal</option><option value="Aaron">Aaron</option><option value="Both">Both</option></select>
-        <select id="d-card" onchange="renderDashboard()"><option value="all">All Cards</option><option value="Credit (Chase)">Chase</option><option value="Credit (Amex)">Amex</option><option value="Debit (SoFi)">SoFi</option></select>
-      </div>
-      <div class="bar-chart" id="category-bars"></div>
-    </div>
-    <div class="card">
-      <div class="card-title">Spending by Person</div>
-      <div class="donut-wrap">
-        <div class="donut-canvas-wrap"><canvas id="donut-canvas" width="360" height="360"></canvas></div>
-        <div class="donut-legend" id="donut-legend"></div>
-      </div>
-    </div>
-  </div>
-
-  <!-- MONTHLY TREND -->
-  <div class="card section"><div class="card-title">Monthly Trend</div><div class="trend-wrap" id="trend-wrap"><canvas id="trend-canvas"></canvas></div></div>
-
-  <!-- MONTH COMPARISON CHART -->
+  <!-- SPENDING OVERVIEW SECTION -->
   <div class="card section">
-    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:12px;">
-      <div class="card-title" style="margin-bottom:0;">Month Comparison</div>
-      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-        <span style="font-size:11px;color:var(--text2);">Compare this month vs</span>
-        <select id="d-compare-month" onchange="renderCompareChart()" style="width:auto;padding:5px 9px;font-size:12px;"><option value="">Last Month</option></select>
+    <div class="card-title" style="margin-bottom:14px;">Spending Overview & Trends</div>
+
+    <!-- Stats -->
+    <div class="stat-row" id="dash-primary-stats" style="margin-bottom:10px;"><div class="loading" style="grid-column:1/-1">Loading…</div></div>
+    <div id="dash-running-wrap" style="margin-bottom:16px;"></div>
+
+    <!-- Category + Donut -->
+    <div class="two-col section" style="margin-bottom:16px;">
+      <div>
+        <div class="card-title">Spending by Category</div>
+        <div class="filter-row">
+          <select id="d-year" onchange="updateDependentFilters('d');renderDashboard()"><option value="all">All Years</option></select>
+          <select id="d-month" onchange="renderDashboard()"><option value="all">All Months</option></select>
+          <select id="d-week" onchange="renderDashboard()"><option value="all">All Weeks</option></select>
+          <select id="d-who" onchange="renderDashboard()"><option value="all">All Spenders</option><option value="Crystal">Crystal</option><option value="Aaron">Aaron</option><option value="Both">Both</option></select>
+          <select id="d-card" onchange="renderDashboard()"><option value="all">All Cards</option><option value="Credit (Chase)">Chase</option><option value="Credit (Amex)">Amex</option><option value="Debit (SoFi)">SoFi</option></select>
+        </div>
+        <div class="bar-chart" id="category-bars"></div>
+      </div>
+      <div>
+        <div class="card-title">Spending by Person</div>
+        <div class="donut-wrap">
+          <div class="donut-canvas-wrap"><canvas id="donut-canvas" width="360" height="360"></canvas></div>
+          <div class="donut-legend" id="donut-legend"></div>
+        </div>
       </div>
     </div>
-    <div id="compare-legend" style="display:flex;gap:16px;margin-bottom:10px;flex-wrap:wrap;"></div>
-    <div class="trend-wrap"><canvas id="compare-canvas"></canvas></div>
-  </div>
 
-  <!-- TOP CATEGORIES BY MONTH -->
-  <div class="card section">
-    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:12px;">
-      <div class="card-title" style="margin-bottom:0;">Top Categories by Month</div>
-      <select id="d-cat-month" onchange="renderCatByMonth()" style="width:auto;padding:5px 9px;font-size:12px;"><option value="">This Month</option></select>
+    <!-- Monthly Trend -->
+    <div style="margin-bottom:16px;">
+      <div class="card-title">Monthly Trend</div>
+      <div class="trend-wrap" id="trend-wrap"><canvas id="trend-canvas"></canvas></div>
     </div>
-    <div id="cat-by-month"></div>
-  </div>
 
-  <!-- RECENT TRANSACTIONS -->
-  <div class="card section"><div class="card-title">Recent Transactions</div><div class="table-wrap" id="recent-table"><div class="loading">Loading…</div></div></div>
-</div>
+    <!-- Month Comparison -->
+    <div style="margin-bottom:16px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:12px;">
+        <div class="card-title" style="margin-bottom:0;">Month Comparison</div>
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+          <span style="font-size:11px;color:var(--text2);">Compare this month vs</span>
+          <select id="d-compare-month" onchange="renderCompareChart()" style="width:auto;padding:5px 9px;font-size:12px;"><option value="">Last Month</option></select>
+        </div>
+      </div>
+      <div id="compare-legend" style="display:flex;gap:16px;margin-bottom:10px;flex-wrap:wrap;"></div>
+      <div class="trend-wrap"><canvas id="compare-canvas"></canvas></div>
+    </div>
+
+    <!-- Top Categories by Month -->
+    <div style="margin-bottom:16px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:12px;">
+        <div class="card-title" style="margin-bottom:0;">Top Categories by Month</div>
+        <select id="d-cat-month" onchange="renderCatByMonth()" style="width:auto;padding:5px 9px;font-size:12px;"><option value="">This Month</option></select>
+      </div>
+      <div id="cat-by-month"></div>
+    </div>
+
+    <!-- Recent Transactions -->
+    <div>
+      <div class="card-title">Recent Transactions</div>
+      <div class="table-wrap" id="recent-table"><div class="loading">Loading…</div></div>
+    </div>
+  </div>
 
 <!-- TRANSACTIONS (unified: add + import + list) -->
 <div id="view-transactions" class="view">
@@ -422,7 +432,7 @@ td.date-col,th.date-col{width:110px;white-space:nowrap;}
       <select id="t-year" onchange="updateDependentFilters('t');renderTransactions()"><option value="all">All Years</option></select>
       <select id="t-month" onchange="renderTransactions()"><option value="all">All Months</option></select>
       <select id="t-week" onchange="renderTransactions()"><option value="all">All Weeks</option></select>
-      <select id="t-who" onchange="renderTransactions()"><option value="all">All</option><option value="Crystal">Crystal</option><option value="Aaron">Aaron</option><option value="Both">Both</option></select>
+      <select id="t-who" onchange="renderTransactions()"><option value="all">All Spenders</option><option value="Crystal">Crystal</option><option value="Aaron">Aaron</option><option value="Both">Both</option></select>
       <select id="t-card" onchange="renderTransactions()"><option value="all">All Cards</option><option value="Credit (Chase)">Chase</option><option value="Credit (Amex)">Amex</option><option value="Debit (SoFi)">SoFi</option></select>
       <select id="t-cat" onchange="renderTransactions()"><option value="all">All Categories</option></select>
       <input type="text" id="t-search" placeholder="Search…" oninput="renderTransactions()">
@@ -436,7 +446,7 @@ td.date-col,th.date-col{width:110px;white-space:nowrap;}
   <div class="page-header">
     <div class="header-actions">
       <div><h1>Savings & Retirement</h1><p>Contribution tracking</p></div>
-      <select id="contrib-year" onchange="renderContributions()" style="width:auto;padding:7px 12px;font-size:13px;"><option value="2026">2026</option><option value="2025">2025</option></select>
+      <select id="contrib-year" onchange="renderContributions()" style="width:auto;padding:7px 12px;font-size:13px;"><option value="2027">2027</option><option value="2026" selected>2026</option><option value="2025">2025</option></select>
     </div>
   </div>
   <div id="contrib-grand-totals" class="section"></div>
@@ -530,7 +540,7 @@ td.date-col,th.date-col{width:110px;white-space:nowrap;}
       <div class="card-title">Contribution Goals</div>
       <div style="display:flex;gap:8px;margin-bottom:14px;align-items:center;">
         <label style="font-size:11px;color:var(--text2);white-space:nowrap;">Year</label>
-        <select id="goals-year" onchange="renderGoalsSettings()" style="width:auto;padding:6px 10px;font-size:13px;"><option value="2026">2026</option><option value="2025">2025</option></select>
+        <select id="goals-year" onchange="renderGoalsSettings()" style="width:auto;padding:6px 10px;font-size:13px;"><option value="2027">2027</option><option value="2026">2026</option><option value="2025">2025</option></select>
       </div>
       <div id="goals-list"></div>
       <button class="btn btn-primary" style="margin-top:14px;width:100%;" onclick="saveGoals()">Save Goals</button>
@@ -572,8 +582,10 @@ td.date-col,th.date-col{width:110px;white-space:nowrap;}
         <label>End Date</label>
         <div style="display:flex;gap:8px;align-items:center;">
           <input type="date" id="bill-end" style="flex:1;">
-          <label style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text2);white-space:nowrap;text-transform:none;letter-spacing:0;">
-            <input type="checkbox" id="bill-no-end" onchange="toggleBillEndDate(this)" style="width:auto;"> No end
+          <label class="custom-check" style="flex-shrink:0;gap:6px;cursor:pointer;" title="No end date">
+            <input type="checkbox" id="bill-no-end" onchange="toggleBillEndDate(this)">
+            <span class="checkmark"></span>
+            <span style="font-size:11px;color:var(--text2);">No end</span>
           </label>
         </div>
       </div>
@@ -615,7 +627,8 @@ const DEFAULT_HOBBIES=["Backpacking","Hiking","Paragliding","Climbing","Biking",
 const DEFAULT_TRIPS=["Iceland 2026","Hawaii 2026"];
 const DEFAULT_GOALS={
   2025:{aaron401k:23000,aaronIRA:7000,aaronBrok:15000,crystal401k:23000,crystalIRA:7000,hsa:8000,crystalBrok:8000,emergency:30000},
-  2026:{aaron401k:24500,aaronIRA:7500,aaronBrok:15000,crystal401k:24500,crystalIRA:7500,hsa:8000,crystalBrok:8000,emergency:30000}
+  2026:{aaron401k:24500,aaronIRA:7500,aaronBrok:15000,crystal401k:24500,crystalIRA:7500,hsa:8000,crystalBrok:8000,emergency:30000},
+  2027:{aaron401k:24500,aaronIRA:7500,aaronBrok:15000,crystal401k:24500,crystalIRA:7500,hsa:8000,crystalBrok:8000,emergency:30000}
 };
 
 // Always start empty — Supabase is the ONLY source of truth, no localStorage fallback
@@ -635,7 +648,7 @@ async function loadSettings(){
     const hobRow=rows.find(r=>r.key==="hobbies");
     const trpRow=rows.find(r=>r.key==="trips");
     const goalsRow=rows.find(r=>r.key==="goals");
-    if(catRow)CATEGORIES=Array.isArray(catRow.value)?catRow.value:[...DEFAULT_CATEGORIES];
+    if(catRow)CATEGORIES=Array.isArray(catRow.value)?catRow.value.sort((a,b)=>a.replace(/[^a-z]/gi,"").localeCompare(b.replace(/[^a-z]/gi,""))):([...DEFAULT_CATEGORIES].sort((a,b)=>a.replace(/[^a-z]/gi,"").localeCompare(b.replace(/[^a-z]/gi,""))));
     if(hobRow)HOBBIES=Array.isArray(hobRow.value)?hobRow.value:[...DEFAULT_HOBBIES];
     if(trpRow)TRIPS=Array.isArray(trpRow.value)?trpRow.value:[...DEFAULT_TRIPS];
     if(goalsRow&&goalsRow.value)GOALS=goalsRow.value;
@@ -817,7 +830,9 @@ function onCategoryChange(cat){
 async function addCategory(){
   const inp=document.getElementById("new-cat-input"),val=inp.value.trim();if(!val)return;
   if(CATEGORIES.includes(val)){showToast("Already exists",true);return;}
-  CATEGORIES.push(val);inp.value="";
+  CATEGORIES.push(val);
+  CATEGORIES.sort((a,b)=>a.replace(/[^a-z]/gi,"").localeCompare(b.replace(/[^a-z]/gi,"")));
+  inp.value="";
   await saveSetting("categories",CATEGORIES);
   refreshAllDropdowns();renderSettings();showToast("Category added ✓");
 }
@@ -954,10 +969,10 @@ function renderDashContrib(){
   });
 
   document.getElementById("dash-contrib-stats").innerHTML=`
-    <div class="stat-tile"><div class="stat-label">2026 Total</div><div class="stat-value">${fmtMoney(yearTotal)}</div><div class="stat-sub">of ${fmtMoney(goalTotal)} goal · ${goalTotal>0?(yearTotal/goalTotal*100).toFixed(1):0}%</div></div>
-    <div class="stat-tile"><div class="stat-label">Crystal 2026</div><div class="stat-value" style="color:var(--crystal-light)">${fmtMoney(crystalYr)}</div><div class="stat-sub">across all accounts</div></div>
-    <div class="stat-tile"><div class="stat-label">Aaron 2026</div><div class="stat-value" style="color:var(--aaron-light)">${fmtMoney(aaronYr)}</div><div class="stat-sub">across all accounts</div></div>
-    <div class="stat-tile dim"><div class="stat-label">All Time</div><div class="stat-value dim">${fmtMoney(allTime)}</div><div class="stat-sub">contributions ever logged</div></div>`;
+    <div class="stat-tile" style="border-color:rgba(138,170,138,0.2)"><div class="stat-label">2026 Total Contributed</div><div class="stat-value" style="color:#8aaa8a">${fmtMoney(yearTotal)}</div><div class="stat-sub">of ${fmtMoney(goalTotal)} goal · ${goalTotal>0?(yearTotal/goalTotal*100).toFixed(1):0}%</div></div>
+    <div class="stat-tile" style="border-color:rgba(122,158,126,0.2)"><div class="stat-label">Crystal 2026</div><div class="stat-value" style="color:var(--crystal-light)">${fmtMoney(crystalYr)}</div><div class="stat-sub">across all accounts</div></div>
+    <div class="stat-tile" style="border-color:rgba(139,122,160,0.2)"><div class="stat-label">Aaron 2026</div><div class="stat-value" style="color:var(--aaron-light)">${fmtMoney(aaronYr)}</div><div class="stat-sub">across all accounts</div></div>
+    <div class="stat-tile dim"><div class="stat-label">All Time Contributions</div><div class="stat-value" style="color:#8aaa8a;font-size:18px;">${fmtMoney(allTime)}</div><div class="stat-sub">ever logged</div></div>`;
 }
 
 function renderCompareChart(){
@@ -1062,6 +1077,7 @@ function drawDonut(txns){
 function drawTrend(txns){
   const wrap=document.getElementById("trend-wrap"),cv=document.getElementById("trend-canvas");if(!cv||!wrap)return;
   const mm={};txns.forEach(t=>{mm[t.month]=(mm[t.month]||0)+parseFloat(t.amount);});
+  // Sort ascending: oldest left → newest right
   const months=Object.keys(mm).sort((a,b)=>new Date(a)-new Date(b));if(!months.length)return;
   const dpr=window.devicePixelRatio||1,dispW=Math.max(wrap.offsetWidth||600,months.length*110),dispH=220;
   cv.style.width=dispW+"px";cv.style.height=dispH+"px";cv.width=Math.round(dispW*dpr);cv.height=Math.round(dispH*dpr);
@@ -1075,8 +1091,10 @@ function drawTrend(txns){
   ctx.beginPath();pts.forEach(([x,y],i)=>{if(i===0)ctx.moveTo(x,y);else{const p=pts[i-1],cx=(p[0]+x)/2;ctx.bezierCurveTo(cx,p[1],cx,y,x,y);}});ctx.strokeStyle="#c47a6a";ctx.lineWidth=2.5;ctx.stroke();
   pts.forEach(([x,y],i)=>{ctx.beginPath();ctx.arc(x,y,6,0,2*Math.PI);ctx.fillStyle="rgba(196,122,106,0.2)";ctx.fill();ctx.beginPath();ctx.arc(x,y,4,0,2*Math.PI);ctx.fillStyle="#c47a6a";ctx.fill();ctx.beginPath();ctx.arc(x,y,2,0,2*Math.PI);ctx.fillStyle="#1e1b18";ctx.fill();
     const isAbove=i%2===0;ctx.fillStyle="#c4906a";ctx.font="bold 11px 'DM Mono'";ctx.textAlign="center";if(isAbove){ctx.textBaseline="bottom";ctx.fillText(fmtMoney(vals[i]),x,y-10);}else{ctx.textBaseline="top";ctx.fillText(fmtMoney(vals[i]),x,y+10);}
-    const short=months[i].replace("January","Jan").replace("February","Feb").replace("March","Mar").replace("April","Apr").replace("June","Jun").replace("July","Jul").replace("August","Aug").replace("September","Sep").replace("October","Oct").replace("November","Nov").replace("December","Dec").replace(" 2025","'25").replace(" 2026","'26");
+    const short=months[i].replace("January","Jan").replace("February","Feb").replace("March","Mar").replace("April","Apr").replace("June","Jun").replace("July","Jul").replace("August","Aug").replace("September","Sep").replace("October","Oct").replace("November","Nov").replace("December","Dec").replace(" 2025","'25").replace(" 2026","'26").replace(" 2027","'27");
     ctx.fillStyle="#6a6058";ctx.font="11px 'DM Mono'";ctx.textBaseline="top";ctx.fillText(short,x,padT+chartH+12);});
+  // Scroll to the right end so most recent is visible
+  setTimeout(()=>{const w=document.getElementById("trend-wrap");if(w)w.scrollLeft=w.scrollWidth;},50);
 }
 
 // ── TRANSACTIONS ──────────────────────────────────────────────────────────────
@@ -1861,9 +1879,26 @@ function toggleBillSchedule(billId){
 
 function showToast(msg,isError=false){const t=document.getElementById("toast");t.textContent=msg;t.className=isError?"error":"";t.classList.add("show");setTimeout(()=>t.classList.remove("show"),2500);}
 
+function initComboKeyboard(name){
+  const inp=document.getElementById("f-"+name+"-text");
+  if(!inp)return;
+  inp.addEventListener("keydown",e=>{
+    const list=document.getElementById("combo-list-"+name);
+    if(!list||!list.classList.contains("open"))return;
+    const opts=[...list.querySelectorAll(".combo-option:not(.empty)")];
+    const cur=list.querySelector(".combo-option.active");
+    let idx=opts.indexOf(cur);
+    if(e.key==="ArrowDown"){e.preventDefault();idx=Math.min(idx+1,opts.length-1);opts.forEach(o=>o.classList.remove("active"));if(opts[idx])opts[idx].classList.add("active");}
+    else if(e.key==="ArrowUp"){e.preventDefault();idx=Math.max(idx-1,0);opts.forEach(o=>o.classList.remove("active"));if(opts[idx])opts[idx].classList.add("active");}
+    else if(e.key==="Enter"){e.preventDefault();const active=list.querySelector(".combo-option.active");if(active){selectCombo(name,active.textContent);}else if(opts[0]){selectCombo(name,opts[0].textContent);}}
+    else if(e.key==="Escape"){list.classList.remove("open");}
+  });
+}
+
 // INIT
 document.getElementById("f-date").value=new Date().toISOString().slice(0,10);
 document.getElementById("bill-due").value=new Date().toISOString().slice(0,10);
+["category","who","charge"].forEach(initComboKeyboard);
 loadAllData().then(async()=>{await loadBills();renderDashboard();});
 sb.channel("txn-rt").on("postgres_changes",{event:"*",schema:"public",table:"transactions"},async()=>{await loadAllData();const av=document.querySelector(".view.active")?.id;if(av==="view-dashboard")renderDashboard();if(av==="view-transactions")renderTransactions();}).subscribe();
 </script>
