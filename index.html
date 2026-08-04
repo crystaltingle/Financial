@@ -290,7 +290,8 @@ td.date-col,th.date-col{width:110px;white-space:nowrap;}
     <div id="dash-running-wrap" style="margin-bottom:0;"></div>
   </div>
 
-  <!-- SPENDING BY CATEGORY + SPENDING BY PERSON (side by side, full width) -->
+  <!-- MAIN LAYOUT: category left, right column = donut + line graphs stacked -->
+  <!-- SPENDING BY CATEGORY + SPENDING BY PERSON: true equal halves -->
   <div class="two-col section">
     <div class="card">
       <div class="card-title">Spending by Category</div>
@@ -312,38 +313,29 @@ td.date-col,th.date-col{width:110px;white-space:nowrap;}
     </div>
   </div>
 
-  <!-- MONTHLY TREND + MONTH COMPARISON (side by side, under the two above) -->
-  <div class="two-col section">
-    <div class="card">
-      <div class="card-title">Monthly Trend</div>
-      <div class="trend-wrap" id="trend-wrap"><canvas id="trend-canvas"></canvas></div>
-    </div>
-    <div class="card">
-      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:12px;">
-        <div class="card-title" style="margin-bottom:0;">Month Comparison</div>
-        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-          <span style="font-size:10px;color:var(--text2);">vs</span>
-          <select id="d-compare-month" onchange="renderCompareChart()" style="width:auto;padding:4px 8px;font-size:11px;"><option value="">Last Month</option></select>
-        </div>
-      </div>
-      <div id="compare-legend" style="display:flex;gap:14px;margin-bottom:8px;flex-wrap:wrap;"></div>
-      <div class="trend-wrap"><canvas id="compare-canvas"></canvas></div>
-    </div>
+  <!-- MONTHLY TREND: full width, scrollable -->
+  <div class="card section">
+    <div class="card-title">Monthly Trend</div>
+    <div class="trend-wrap" id="trend-wrap" style="overflow-x:auto;"><canvas id="trend-canvas" style="display:block;max-width:none;"></canvas></div>
   </div>
 
-  <!-- TOP CATEGORIES BY MONTH + RECENT TRANSACTIONS (side by side) -->
-  <div class="two-col section">
-    <div class="card">
-      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:12px;">
-        <div class="card-title" style="margin-bottom:0;">Top Categories by Month</div>
-        <select id="d-cat-month" onchange="renderCatByMonth()" style="width:auto;padding:4px 8px;font-size:11px;"><option value="">This Month</option></select>
+  <!-- MONTH COMPARISON: full width -->
+  <div class="card section">
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:12px;">
+      <div class="card-title" style="margin-bottom:0;">Month Comparison</div>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <span style="font-size:10px;color:var(--text2);">vs</span>
+        <select id="d-compare-month" onchange="renderCompareChart()" style="width:auto;padding:4px 8px;font-size:11px;"><option value="">Last Month</option></select>
       </div>
-      <div id="cat-by-month"></div>
     </div>
-    <div class="card">
-      <div class="card-title">Recent Transactions</div>
-      <div class="table-wrap" id="recent-table"><div class="loading">Loading…</div></div>
-    </div>
+    <div id="compare-legend" style="display:flex;gap:14px;margin-bottom:8px;flex-wrap:wrap;"></div>
+    <div class="trend-wrap" style="overflow-x:auto;"><canvas id="compare-canvas" style="display:block;max-width:none;"></canvas></div>
+  </div>
+
+  <!-- RECENT TRANSACTIONS -->
+  <div class="card section">
+    <div class="card-title">Recent Transactions</div>
+    <div class="table-wrap" id="recent-table"><div class="loading">Loading…</div></div>
   </div>
 
 </div>
@@ -565,7 +557,14 @@ td.date-col,th.date-col{width:110px;white-space:nowrap;}
     <div class="card-title">Add Recurring Bill</div>
     <div class="form-grid">
       <div class="form-group"><label>Name</label><input type="text" id="bill-name" placeholder="e.g. Netflix"></div>
-      <div class="form-group"><label>Amount ($)</label><input type="number" id="bill-amount" placeholder="0.00" step="0.01" min="0"></div>
+      <div class="form-group"><label>Amount ($)</label>
+        <input type="number" id="bill-amount" placeholder="0.00" step="0.01" min="0">
+        <label style="display:flex;align-items:center;gap:6px;margin-top:6px;cursor:pointer;" class="custom-check">
+          <input type="checkbox" id="bill-variable">
+          <span class="checkmark"></span>
+          <span style="font-size:11px;color:var(--text2);text-transform:none;letter-spacing:0;">Variable amount (e.g. utilities)</span>
+        </label>
+      </div>
       <div class="form-group"><label>Frequency</label>
         <select id="bill-freq">
           <option value="weekly">Weekly</option>
@@ -1079,7 +1078,11 @@ function drawTrend(txns){
   const mm={};txns.forEach(t=>{mm[t.month]=(mm[t.month]||0)+parseFloat(t.amount);});
   // Sort ascending: oldest left → newest right
   const months=Object.keys(mm).sort((a,b)=>new Date(a)-new Date(b));if(!months.length)return;
-  const dpr=window.devicePixelRatio||1,dispW=Math.max(wrap.offsetWidth||600,months.length*110),dispH=220;
+  const dpr=window.devicePixelRatio||1;
+  const containerW=wrap.offsetWidth||600;
+  const minPerMonth=80;
+  const dispW=months.length*minPerMonth>containerW?months.length*minPerMonth:containerW;
+  const dispH=220;
   cv.style.width=dispW+"px";cv.style.height=dispH+"px";cv.width=Math.round(dispW*dpr);cv.height=Math.round(dispH*dpr);
   const ctx=cv.getContext("2d");ctx.scale(dpr,dpr);ctx.clearRect(0,0,dispW,dispH);
   const vals=months.map(m=>mm[m]),maxV=Math.max(...vals)*1.3||1;
@@ -1671,8 +1674,8 @@ function togglePanel(id){
 }
 
 // ── BILLS ─────────────────────────────────────────────────────────────────────
-// Each bill has: id, name, amount, freq, startDate, endDate (null = no end),
-// who, card, cat, note, occurrences: [{date, paid}]
+// Each bill: id, name, amount, variable, freq, startDate, endDate,
+// who, card, cat, note, occurrences: [{date, paid, amount}]
 let BILLS=[];
 const FREQ_LABELS={weekly:"Weekly",biweekly:"Bi-weekly",monthly:"Monthly",bimonthly:"Bi-monthly",quarterly:"Quarterly",biannual:"Bi-annual",annual:"Annual"};
 const FREQ_MONTHLY={weekly:52/12,biweekly:26/12,monthly:1,bimonthly:0.5,quarterly:1/3,biannual:1/6,annual:1/12};
@@ -1691,16 +1694,13 @@ function toggleBillEndDate(cb){
   if(inp){inp.disabled=cb.checked;if(cb.checked)inp.value="";}
 }
 
-// Generate all occurrence dates for a bill from startDate up to endDate or 5 years
 function generateOccurrences(startDate,freq,endDate){
-  const occs=[];
-  const cutoff=new Date(startDate+"T12:00:00");
+  const occs=[],cutoff=new Date(startDate+"T12:00:00");
   cutoff.setFullYear(cutoff.getFullYear()+MAX_YEARS);
   const limit=endDate?new Date(Math.min(new Date(endDate+"T12:00:00"),cutoff)):cutoff;
   let d=new Date(startDate+"T12:00:00");
   while(d<=limit){
-    occs.push({date:d.toISOString().slice(0,10),paid:false});
-    // Advance by frequency
+    occs.push({date:d.toISOString().slice(0,10),paid:false,amount:null});
     if(freq==="weekly")d.setDate(d.getDate()+7);
     else if(freq==="biweekly")d.setDate(d.getDate()+14);
     else if(freq==="monthly")d.setMonth(d.getMonth()+1);
@@ -1709,7 +1709,7 @@ function generateOccurrences(startDate,freq,endDate){
     else if(freq==="biannual")d.setMonth(d.getMonth()+6);
     else if(freq==="annual")d.setFullYear(d.getFullYear()+1);
     else break;
-    if(occs.length>500)break; // safety cap
+    if(occs.length>500)break;
   }
   return occs;
 }
@@ -1719,9 +1719,14 @@ function daysUntil(dateStr){
   return Math.ceil((new Date(dateStr+"T12:00:00")-today)/86400000);
 }
 
+function getEffectiveAmount(bill,occ){
+  return occ.amount!=null?occ.amount:bill.amount;
+}
+
 async function addBill(){
   const name=document.getElementById("bill-name").value.trim();
   const amount=parseFloat(document.getElementById("bill-amount").value)||0;
+  const variable=document.getElementById("bill-variable").checked;
   const freq=document.getElementById("bill-freq").value;
   const startDate=document.getElementById("bill-due").value;
   const noEnd=document.getElementById("bill-no-end").checked;
@@ -1732,15 +1737,15 @@ async function addBill(){
   const note=document.getElementById("bill-note").value.trim();
   if(!name||!amount||!startDate){showToast("Name, amount, and start date are required",true);return;}
   const occurrences=generateOccurrences(startDate,freq,endDate||null);
-  const bill={id:`bill_${Date.now()}`,name,amount,freq,startDate,endDate:endDate||null,who,card,cat,note,occurrences};
-  BILLS.push(bill);
-  await saveBills();
+  const bill={id:`bill_${Date.now()}`,name,amount,variable,freq,startDate,endDate:endDate||null,who,card,cat,note,occurrences};
+  BILLS.push(bill);await saveBills();
   ["bill-name","bill-amount","bill-note","bill-end"].forEach(id=>{const el=document.getElementById(id);if(el)el.value="";});
   document.getElementById("bill-due").value=new Date().toISOString().slice(0,10);
   document.getElementById("bill-freq").value="monthly";
   document.getElementById("bill-no-end").checked=false;
+  if(document.getElementById("bill-variable"))document.getElementById("bill-variable").checked=false;
   document.getElementById("bill-end").disabled=false;
-  showToast(`Bill added · ${occurrences.length} occurrences generated ✓`);renderBills();
+  showToast(`Bill added · ${occurrences.length} occurrences ✓`);renderBills();
 }
 
 async function removeBill(id){
@@ -1749,43 +1754,55 @@ async function removeBill(id){
   await saveBills();showToast("Removed");renderBills();
 }
 
+async function editBillField(billId,field,value){
+  const b=BILLS.find(b=>b.id===billId);if(!b)return;
+  if(field==="amount")b.amount=parseFloat(value)||0;
+  else if(field==="endDate"){
+    b.endDate=value||null;
+    const paidDates=new Set((b.occurrences||[]).filter(o=>o.paid).map(o=>o.date));
+    const newOccs=generateOccurrences(b.startDate,b.freq,b.endDate);
+    b.occurrences=newOccs.map(o=>({...o,paid:paidDates.has(o.date)}));
+  }
+  else b[field]=value;
+  await saveBills();renderBills();
+}
+
 async function toggleOccurrencePaid(billId,occIdx){
   const b=BILLS.find(b=>b.id===billId);if(!b||!b.occurrences[occIdx])return;
   b.occurrences[occIdx].paid=!b.occurrences[occIdx].paid;
   await saveBills();renderBills();
 }
-
 async function updateOccurrenceDate(billId,occIdx,newDate){
   const b=BILLS.find(b=>b.id===billId);if(!b||!b.occurrences[occIdx])return;
-  b.occurrences[occIdx].date=newDate;
-  await saveBills();renderBills();
+  b.occurrences[occIdx].date=newDate;await saveBills();renderBills();
+}
+async function updateOccurrenceAmount(billId,occIdx,value){
+  const b=BILLS.find(b=>b.id===billId);if(!b||!b.occurrences[occIdx])return;
+  b.occurrences[occIdx].amount=value===""?null:parseFloat(value)||0;
+  await saveBills();
 }
 
 function getNextOccurrence(bill){
   const today=new Date();today.setHours(0,0,0,0);
-  const upcoming=(bill.occurrences||[]).filter(o=>!o.paid&&new Date(o.date+"T12:00:00")>=today);
-  return upcoming.length?upcoming[0]:null;
+  return(bill.occurrences||[]).find(o=>!o.paid&&new Date(o.date+"T12:00:00")>=today)||null;
 }
 
 function renderBills(){
   const bc=document.getElementById("bill-cat");
   if(bc&&bc.options.length<=1){CATEGORIES.forEach(c=>bc.innerHTML+=`<option value="${c}">${c}</option>`);}
-
   if(!BILLS.length){
-    document.getElementById("bills-upcoming").innerHTML='<div class="empty">No bills yet — add one below</div>';
+    document.getElementById("bills-upcoming").innerHTML='<div class="empty">No bills yet &mdash; add one below</div>';
     document.getElementById("bills-summary").innerHTML="";
     document.getElementById("bills-list").innerHTML="";
     return;
   }
 
-  // ── Upcoming (next 30 days, across all occurrences) ──
-  const today=new Date();today.setHours(0,0,0,0);
   const upcomingOccs=[];
   BILLS.forEach(b=>{
     (b.occurrences||[]).forEach((o,i)=>{
       if(o.paid)return;
       const days=daysUntil(o.date);
-      if(days>=0&&days<=30)upcomingOccs.push({...b,occ:o,occIdx:i,days});
+      if(days>=0&&days<=30)upcomingOccs.push({...b,occ:o,occIdx:i,days,effAmt:getEffectiveAmount(b,o)});
     });
   });
   upcomingOccs.sort((a,b)=>a.occ.date.localeCompare(b.occ.date));
@@ -1795,36 +1812,36 @@ function renderBills(){
         const urgency=b.days<=3?"var(--danger)":b.days<=7?"var(--warn)":"var(--text)";
         return`<div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:12px 14px;margin-bottom:8px;display:flex;align-items:center;gap:14px;flex-wrap:wrap;">
           <div style="flex:1;min-width:140px;">
-            <div style="font-weight:500;font-size:13px;">${b.name}</div>
-            <div style="font-size:11px;color:var(--text3);margin-top:2px;">${FREQ_LABELS[b.freq]||b.freq} · ${b.card} · ${b.who}</div>
+            <div style="font-weight:500;font-size:13px;">${b.name}${b.variable?'<span style="font-size:10px;color:var(--warn);margin-left:6px;">variable</span>':""}</div>
+            <div style="font-size:11px;color:var(--text3);margin-top:2px;">${FREQ_LABELS[b.freq]||b.freq} &middot; ${b.card} &middot; ${b.who}</div>
           </div>
-          <div style="font-family:var(--font-display);font-size:18px;color:var(--spend1);">${fmtMoney(b.amount)}</div>
+          <div style="font-family:var(--font-display);font-size:18px;color:var(--spend1);">${fmtMoney(b.effAmt)}${b.variable&&b.occ.amount==null?'<span style="font-size:10px;color:var(--text3);margin-left:4px;">est.</span>':""}  </div>
           <div style="text-align:right;min-width:80px;">
             <div style="color:${urgency};font-size:12px;font-weight:500;">${b.days===0?"Today":b.days===1?"Tomorrow":`${b.days} days`}</div>
             <div style="font-size:10px;color:var(--text3);margin-top:1px;">${fmtDate(b.occ.date)}</div>
           </div>
-          <button onclick="toggleOccurrencePaid('${b.id}',${b.occIdx})" class="btn btn-sm btn-primary" style="flex-shrink:0;">Mark Paid</button>
+          <button onclick="toggleOccurrencePaid('${b.id}',${b.occIdx})" class="btn btn-sm btn-primary">Mark Paid</button>
         </div>`;
       }).join("")
     :'<div style="color:var(--text3);font-size:12px;padding:10px 0;">Nothing due in the next 30 days</div>';
 
-  // ── Summary ──
-  const monthlyTotal=BILLS.reduce((s,b)=>s+(b.amount*(FREQ_MONTHLY[b.freq]||1)),0);
+  const monthlyTotal=BILLS.reduce((s,b)=>{
+    if(b.variable){
+      const paidAmts=(b.occurrences||[]).filter(o=>o.paid&&o.amount!=null).map(o=>o.amount);
+      const avg=paidAmts.length?paidAmts.reduce((a,v)=>a+v,0)/paidAmts.length:b.amount;
+      return s+(avg*(FREQ_MONTHLY[b.freq]||1));
+    }
+    return s+(b.amount*(FREQ_MONTHLY[b.freq]||1));
+  },0);
   const annualTotal=monthlyTotal*12;
-  const paidThisMonth=BILLS.reduce((s,b)=>{
-    const tm=thisMonthLabel();
-    return s+(b.occurrences||[]).filter(o=>o.paid&&getMonthLabel(o.date)===tm).length;
-  },0);
-  const totalThisMonth=BILLS.reduce((s,b)=>{
-    const tm=thisMonthLabel();
-    return s+(b.occurrences||[]).filter(o=>getMonthLabel(o.date)===tm).length;
-  },0);
+  const tm=thisMonthLabel();
+  const paidThisMonth=BILLS.reduce((s,b)=>s+(b.occurrences||[]).filter(o=>o.paid&&getMonthLabel(o.date)===tm).length,0);
+  const totalThisMonth=BILLS.reduce((s,b)=>s+(b.occurrences||[]).filter(o=>getMonthLabel(o.date)===tm).length,0);
   document.getElementById("bills-summary").innerHTML=`
-    <div class="stat-tile"><div class="stat-label">Monthly Equivalent</div><div class="stat-value">${fmtMoney(monthlyTotal)}</div><div class="stat-sub">fixed recurring / month</div></div>
+    <div class="stat-tile"><div class="stat-label">Monthly Equivalent</div><div class="stat-value">${fmtMoney(monthlyTotal)}</div><div class="stat-sub">fixed + avg variable</div></div>
     <div class="stat-tile"><div class="stat-label">Annual Equivalent</div><div class="stat-value v2">${fmtMoney(annualTotal)}</div><div class="stat-sub">across all bills</div></div>
-    <div class="stat-tile"><div class="stat-label">This Month</div><div class="stat-value v3">${paidThisMonth} / ${totalThisMonth}</div><div class="stat-sub">bills paid this month</div></div>`;
+    <div class="stat-tile"><div class="stat-label">This Month</div><div class="stat-value v3">${paidThisMonth} / ${totalThisMonth}</div><div class="stat-sub">paid this month</div></div>`;
 
-  // ── Bill list grouped by frequency ──
   const groups={};
   BILLS.forEach(b=>{if(!groups[b.freq])groups[b.freq]=[];groups[b.freq].push(b);});
   const freqOrder=["weekly","biweekly","monthly","bimonthly","quarterly","biannual","annual"];
@@ -1840,26 +1857,54 @@ function renderBills(){
         const next=getNextOccurrence(b);
         const totalOccs=(b.occurrences||[]).length;
         const paidOccs=(b.occurrences||[]).filter(o=>o.paid).length;
-        const endLabel=b.endDate?`Ends ${fmtDate(b.endDate)}`:"No end date";
+        const nextAmt=next?getEffectiveAmount(b,next):b.amount;
+        const catOpts=CATEGORIES.map(c=>`<option value="${c}"${b.cat===c?' selected':''}>${c}</option>`).join("");
+        const cardOpts=["Credit (Chase)","Credit (Amex)","Debit (SoFi)","Auto-pay","Other"].map(c=>`<option${b.card===c?' selected':''}>${c}</option>`).join("");
         return`<div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;margin-bottom:10px;overflow:hidden;">
-          <div style="display:flex;align-items:center;gap:12px;padding:12px 14px;flex-wrap:wrap;">
-            <div style="flex:1;min-width:160px;">
-              <div style="font-weight:500;font-size:13px;">${b.name}${b.note?`<span style="font-size:10px;font-weight:400;color:var(--text3);margin-left:8px;">${b.note}</span>`:""}</div>
-              <div style="font-size:11px;color:var(--text3);margin-top:3px;">${b.who} · ${b.card}${b.cat?` · ${b.cat}`:""} · ${endLabel}</div>
-              <div style="font-size:11px;color:var(--text2);margin-top:2px;">${paidOccs}/${totalOccs} paid · next: ${next?fmtDate(next.date):"all done"}</div>
+          <div style="display:flex;align-items:flex-start;gap:12px;padding:12px 14px;flex-wrap:wrap;">
+            <div style="flex:1;min-width:200px;">
+              <div style="font-weight:500;font-size:13px;margin-bottom:6px;">${b.name}${b.variable?'<span style="font-size:10px;color:var(--warn);margin-left:6px;font-weight:400;">variable</span>':""}</div>
+              <!-- Editable fields — collapsible -->
+              <button onclick="toggleBillEdit('${b.id}')" class="btn btn-secondary btn-sm" style="margin-bottom:6px;font-size:10px;padding:3px 8px;">✎ Edit</button>
+              <div id="bill-edit-${b.id}" style="display:none;">
+              <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:4px;">
+                <div style="display:flex;align-items:center;gap:4px;">
+                  <span style="font-size:10px;color:var(--text3);">${b.variable?"Est.":""}$</span>
+                  <input type="number" value="${b.amount}" step="0.01" min="0" onchange="editBillField('${b.id}','amount',this.value)" style="width:80px;padding:3px 6px;font-size:12px;background:var(--surface);border:1px solid var(--border);color:var(--text);border-radius:4px;">
+                </div>
+                <select onchange="editBillField('${b.id}','cat',this.value)" style="padding:3px 6px;font-size:11px;background:var(--surface);border:1px solid var(--border);color:var(--text2);border-radius:4px;">
+                  <option value="">Category</option>${catOpts}
+                </select>
+                <select onchange="editBillField('${b.id}','card',this.value)" style="padding:3px 6px;font-size:11px;background:var(--surface);border:1px solid var(--border);color:var(--text2);border-radius:4px;">${cardOpts}</select>
+                <div style="display:flex;align-items:center;gap:4px;">
+                  <span style="font-size:10px;color:var(--text3);">Ends</span>
+                  <input type="date" value="${b.endDate||""}" onchange="editBillField('${b.id}','endDate',this.value)" style="padding:3px 6px;font-size:11px;background:var(--surface);border:1px solid var(--border);color:var(--text2);border-radius:4px;">
+                  ${!b.endDate?'<span style="font-size:10px;color:var(--text3);">no end</span>':""}
+                </div>
+              </div>
+              </div>
+              <div style="font-size:11px;color:var(--text2);">${paidOccs}/${totalOccs} paid &middot; next: ${next?fmtDate(next.date):"all done"}</div>
             </div>
-            <div style="font-family:var(--font-display);font-size:20px;color:var(--spend1);">${fmtMoney(b.amount)}</div>
+            <div style="text-align:right;flex-shrink:0;">
+              <div style="font-family:var(--font-display);font-size:20px;color:var(--spend1);">${fmtMoney(nextAmt)}</div>
+              ${b.variable&&next&&next.amount==null?'<div style="font-size:10px;color:var(--text3);">estimated</div>':""}
+            </div>
+          </div>
+          <div style="display:flex;gap:8px;padding:0 14px 10px;">
             <button class="btn-danger" onclick="removeBill('${b.id}')">Remove</button>
             <button class="btn btn-secondary btn-sm" onclick="toggleBillSchedule('${b.id}')">View Schedule</button>
           </div>
           <div id="sched-${b.id}" style="display:none;border-top:1px solid var(--border);">
-            <div class="table-wrap"><table style="min-width:400px;"><thead><tr><th>#</th><th>Due Date</th><th>Status</th><th>Action</th></tr></thead><tbody>
+            <div class="table-wrap"><table style="min-width:${b.variable?"500":"420"}px;"><thead><tr>
+              <th>#</th><th>Due Date</th>${b.variable?"<th>Actual $</th>":""}
+              <th>Status</th><th></th>
+            </tr></thead><tbody>
             ${(b.occurrences||[]).map((o,i)=>{
-              const days=daysUntil(o.date);
-              const isPast=days<0;
+              const days=daysUntil(o.date),isPast=days<0;
               return`<tr style="${o.paid?"opacity:0.45":""}${isPast&&!o.paid?"background:rgba(196,122,106,0.05)":""}">
                 <td style="color:var(--text3);font-size:11px;">${i+1}</td>
-                <td><input type="date" value="${o.date}" onchange="updateOccurrenceDate('${b.id}',${i},this.value)" style="padding:3px 6px;font-size:11px;width:140px;"></td>
+                <td><input type="date" value="${o.date}" onchange="updateOccurrenceDate('${b.id}',${i},this.value)" style="padding:3px 6px;font-size:11px;width:140px;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:4px;"></td>
+                ${b.variable?`<td><input type="number" value="${o.amount!=null?o.amount:""}" placeholder="${b.amount} (est)" step="0.01" min="0" onchange="updateOccurrenceAmount('${b.id}',${i},this.value)" style="width:90px;padding:3px 6px;font-size:11px;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:4px;"></td>`:""}
                 <td style="font-size:11px;">${o.paid?'<span style="color:var(--crystal-light);">✓ Paid</span>':isPast?'<span style="color:var(--danger);">Overdue</span>':`<span style="color:var(--text3);">${days===0?"Due today":days===1?"Tomorrow":`${days} days`}</span>`}</td>
                 <td><button onclick="toggleOccurrencePaid('${b.id}',${i})" class="btn btn-sm ${o.paid?"btn-secondary":"btn-primary"}">${o.paid?"Unpay":"Pay"}</button></td>
               </tr>`;
@@ -1874,6 +1919,11 @@ function renderBills(){
 
 function toggleBillSchedule(billId){
   const el=document.getElementById("sched-"+billId);
+  if(el)el.style.display=el.style.display==="none"?"block":"none";
+}
+
+function toggleBillEdit(billId){
+  const el=document.getElementById("bill-edit-"+billId);
   if(el)el.style.display=el.style.display==="none"?"block":"none";
 }
 
