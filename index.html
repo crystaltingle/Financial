@@ -567,7 +567,16 @@ td.date-col,th.date-col{width:110px;white-space:nowrap;}
           <option value="annual">Annual</option>
         </select>
       </div>
-      <div class="form-group"><label>Next Due Date</label><input type="date" id="bill-due"></div>
+      <div class="form-group"><label>First Due Date</label><input type="date" id="bill-due"></div>
+      <div class="form-group">
+        <label>End Date</label>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <input type="date" id="bill-end" style="flex:1;">
+          <label style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text2);white-space:nowrap;text-transform:none;letter-spacing:0;">
+            <input type="checkbox" id="bill-no-end" onchange="toggleBillEndDate(this)" style="width:auto;"> No end
+          </label>
+        </div>
+      </div>
       <div class="form-group"><label>Who</label>
         <select id="bill-who"><option value="Both">Both</option><option value="Crystal">Crystal</option><option value="Aaron">Aaron</option></select>
       </div>
@@ -1644,11 +1653,12 @@ function togglePanel(id){
 }
 
 // ── BILLS ─────────────────────────────────────────────────────────────────────
-// Stored in Supabase app_settings under key "bills"
+// Each bill has: id, name, amount, freq, startDate, endDate (null = no end),
+// who, card, cat, note, occurrences: [{date, paid}]
 let BILLS=[];
-
 const FREQ_LABELS={weekly:"Weekly",biweekly:"Bi-weekly",monthly:"Monthly",bimonthly:"Bi-monthly",quarterly:"Quarterly",biannual:"Bi-annual",annual:"Annual"};
 const FREQ_MONTHLY={weekly:52/12,biweekly:26/12,monthly:1,bimonthly:0.5,quarterly:1/3,biannual:1/6,annual:1/12};
+const MAX_YEARS=5;
 
 async function loadBills(){
   try{
@@ -1656,66 +1666,90 @@ async function loadBills(){
     if(!error&&data&&Array.isArray(data.value))BILLS=data.value;
   }catch{}
 }
+async function saveBills(){await saveSetting("bills",BILLS);}
 
-async function saveBills(){
-  await saveSetting("bills",BILLS);
+function toggleBillEndDate(cb){
+  const inp=document.getElementById("bill-end");
+  if(inp){inp.disabled=cb.checked;if(cb.checked)inp.value="";}
 }
 
-function nextDueDate(dateStr,freq){
-  const d=new Date(dateStr+"T12:00:00");const today=new Date();today.setHours(12,0,0,0);
-  const add={weekly:7,biweekly:14,monthly:0,bimonthly:0,quarterly:0,biannual:0,annual:0};
-  while(d<=today){
-    if(freq==="weekly"||freq==="biweekly"){d.setDate(d.getDate()+add[freq]);}
-    else if(freq==="monthly"){d.setMonth(d.getMonth()+1);}
-    else if(freq==="bimonthly"){d.setMonth(d.getMonth()+2);}
-    else if(freq==="quarterly"){d.setMonth(d.getMonth()+3);}
-    else if(freq==="biannual"){d.setMonth(d.getMonth()+6);}
-    else if(freq==="annual"){d.setFullYear(d.getFullYear()+1);}
+// Generate all occurrence dates for a bill from startDate up to endDate or 5 years
+function generateOccurrences(startDate,freq,endDate){
+  const occs=[];
+  const cutoff=new Date(startDate+"T12:00:00");
+  cutoff.setFullYear(cutoff.getFullYear()+MAX_YEARS);
+  const limit=endDate?new Date(Math.min(new Date(endDate+"T12:00:00"),cutoff)):cutoff;
+  let d=new Date(startDate+"T12:00:00");
+  while(d<=limit){
+    occs.push({date:d.toISOString().slice(0,10),paid:false});
+    // Advance by frequency
+    if(freq==="weekly")d.setDate(d.getDate()+7);
+    else if(freq==="biweekly")d.setDate(d.getDate()+14);
+    else if(freq==="monthly")d.setMonth(d.getMonth()+1);
+    else if(freq==="bimonthly")d.setMonth(d.getMonth()+2);
+    else if(freq==="quarterly")d.setMonth(d.getMonth()+3);
+    else if(freq==="biannual")d.setMonth(d.getMonth()+6);
+    else if(freq==="annual")d.setFullYear(d.getFullYear()+1);
     else break;
+    if(occs.length>500)break; // safety cap
   }
-  return d.toISOString().slice(0,10);
+  return occs;
 }
 
 function daysUntil(dateStr){
   const today=new Date();today.setHours(0,0,0,0);
-  const d=new Date(dateStr+"T12:00:00");
-  return Math.ceil((d-today)/86400000);
+  return Math.ceil((new Date(dateStr+"T12:00:00")-today)/86400000);
 }
 
 async function addBill(){
   const name=document.getElementById("bill-name").value.trim();
   const amount=parseFloat(document.getElementById("bill-amount").value)||0;
   const freq=document.getElementById("bill-freq").value;
-  const due=document.getElementById("bill-due").value;
+  const startDate=document.getElementById("bill-due").value;
+  const noEnd=document.getElementById("bill-no-end").checked;
+  const endDate=noEnd?"":document.getElementById("bill-end").value;
   const who=document.getElementById("bill-who").value;
   const card=document.getElementById("bill-card").value;
   const cat=document.getElementById("bill-cat").value;
   const note=document.getElementById("bill-note").value.trim();
-  if(!name||!amount||!due){showToast("Name, amount, and due date are required",true);return;}
-  const bill={id:`bill_${Date.now()}`,name,amount,freq,due,who,card,cat,note,paidThisCycle:false};
+  if(!name||!amount||!startDate){showToast("Name, amount, and start date are required",true);return;}
+  const occurrences=generateOccurrences(startDate,freq,endDate||null);
+  const bill={id:`bill_${Date.now()}`,name,amount,freq,startDate,endDate:endDate||null,who,card,cat,note,occurrences};
   BILLS.push(bill);
   await saveBills();
-  // Clear form
-  ["bill-name","bill-amount","bill-note"].forEach(id=>document.getElementById(id).value="");
-  document.getElementById("bill-due").value="";
+  ["bill-name","bill-amount","bill-note","bill-end"].forEach(id=>{const el=document.getElementById(id);if(el)el.value="";});
+  document.getElementById("bill-due").value=new Date().toISOString().slice(0,10);
   document.getElementById("bill-freq").value="monthly";
-  showToast("Bill added ✓");renderBills();
+  document.getElementById("bill-no-end").checked=false;
+  document.getElementById("bill-end").disabled=false;
+  showToast(`Bill added · ${occurrences.length} occurrences generated ✓`);renderBills();
 }
 
 async function removeBill(id){
-  if(!confirm("Remove this bill?"))return;
+  if(!confirm("Remove this bill and all its occurrences?"))return;
   BILLS=BILLS.filter(b=>b.id!==id);
   await saveBills();showToast("Removed");renderBills();
 }
 
-async function toggleBillPaid(id){
-  const b=BILLS.find(b=>b.id===id);if(!b)return;
-  b.paidThisCycle=!b.paidThisCycle;
+async function toggleOccurrencePaid(billId,occIdx){
+  const b=BILLS.find(b=>b.id===billId);if(!b||!b.occurrences[occIdx])return;
+  b.occurrences[occIdx].paid=!b.occurrences[occIdx].paid;
   await saveBills();renderBills();
 }
 
+async function updateOccurrenceDate(billId,occIdx,newDate){
+  const b=BILLS.find(b=>b.id===billId);if(!b||!b.occurrences[occIdx])return;
+  b.occurrences[occIdx].date=newDate;
+  await saveBills();renderBills();
+}
+
+function getNextOccurrence(bill){
+  const today=new Date();today.setHours(0,0,0,0);
+  const upcoming=(bill.occurrences||[]).filter(o=>!o.paid&&new Date(o.date+"T12:00:00")>=today);
+  return upcoming.length?upcoming[0]:null;
+}
+
 function renderBills(){
-  // Populate category dropdown
   const bc=document.getElementById("bill-cat");
   if(bc&&bc.options.length<=1){CATEGORIES.forEach(c=>bc.innerHTML+=`<option value="${c}">${c}</option>`);}
 
@@ -1726,16 +1760,21 @@ function renderBills(){
     return;
   }
 
-  // Compute next due for each bill
-  const withDue=BILLS.map(b=>({...b,nextDue:nextDueDate(b.due,b.freq),daysLeft:0}));
-  withDue.forEach(b=>b.daysLeft=daysUntil(b.nextDue));
-  withDue.sort((a,b)=>a.nextDue.localeCompare(b.nextDue));
+  // ── Upcoming (next 30 days, across all occurrences) ──
+  const today=new Date();today.setHours(0,0,0,0);
+  const upcomingOccs=[];
+  BILLS.forEach(b=>{
+    (b.occurrences||[]).forEach((o,i)=>{
+      if(o.paid)return;
+      const days=daysUntil(o.date);
+      if(days>=0&&days<=30)upcomingOccs.push({...b,occ:o,occIdx:i,days});
+    });
+  });
+  upcomingOccs.sort((a,b)=>a.occ.date.localeCompare(b.occ.date));
 
-  // Upcoming (next 30 days)
-  const upcoming=withDue.filter(b=>b.daysLeft<=30&&b.daysLeft>=0);
-  document.getElementById("bills-upcoming").innerHTML=upcoming.length
-    ?upcoming.map(b=>{
-        const urgency=b.daysLeft<=3?"var(--danger)":b.daysLeft<=7?"var(--warn)":"var(--text)";
+  document.getElementById("bills-upcoming").innerHTML=upcomingOccs.length
+    ?upcomingOccs.map(b=>{
+        const urgency=b.days<=3?"var(--danger)":b.days<=7?"var(--warn)":"var(--text)";
         return`<div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:12px 14px;margin-bottom:8px;display:flex;align-items:center;gap:14px;flex-wrap:wrap;">
           <div style="flex:1;min-width:140px;">
             <div style="font-weight:500;font-size:13px;">${b.name}</div>
@@ -1743,26 +1782,33 @@ function renderBills(){
           </div>
           <div style="font-family:var(--font-display);font-size:18px;color:var(--spend1);">${fmtMoney(b.amount)}</div>
           <div style="text-align:right;min-width:80px;">
-            <div style="color:${urgency};font-size:12px;font-weight:500;">${b.daysLeft===0?"Today":b.daysLeft===1?"Tomorrow":`${b.daysLeft} days`}</div>
-            <div style="font-size:10px;color:var(--text3);margin-top:1px;">${fmtDate(b.nextDue)}</div>
+            <div style="color:${urgency};font-size:12px;font-weight:500;">${b.days===0?"Today":b.days===1?"Tomorrow":`${b.days} days`}</div>
+            <div style="font-size:10px;color:var(--text3);margin-top:1px;">${fmtDate(b.occ.date)}</div>
           </div>
-          <button onclick="toggleBillPaid('${b.id}')" class="btn btn-sm ${b.paidThisCycle?"btn-secondary":"btn-primary"}" style="flex-shrink:0;">${b.paidThisCycle?"✓ Paid":"Mark Paid"}</button>
+          <button onclick="toggleOccurrencePaid('${b.id}',${b.occIdx})" class="btn btn-sm btn-primary" style="flex-shrink:0;">Mark Paid</button>
         </div>`;
       }).join("")
     :'<div style="color:var(--text3);font-size:12px;padding:10px 0;">Nothing due in the next 30 days</div>';
 
-  // Summary tiles
+  // ── Summary ──
   const monthlyTotal=BILLS.reduce((s,b)=>s+(b.amount*(FREQ_MONTHLY[b.freq]||1)),0);
   const annualTotal=monthlyTotal*12;
-  const paidCount=BILLS.filter(b=>b.paidThisCycle).length;
+  const paidThisMonth=BILLS.reduce((s,b)=>{
+    const tm=thisMonthLabel();
+    return s+(b.occurrences||[]).filter(o=>o.paid&&getMonthLabel(o.date)===tm).length;
+  },0);
+  const totalThisMonth=BILLS.reduce((s,b)=>{
+    const tm=thisMonthLabel();
+    return s+(b.occurrences||[]).filter(o=>getMonthLabel(o.date)===tm).length;
+  },0);
   document.getElementById("bills-summary").innerHTML=`
     <div class="stat-tile"><div class="stat-label">Monthly Equivalent</div><div class="stat-value">${fmtMoney(monthlyTotal)}</div><div class="stat-sub">fixed recurring / month</div></div>
     <div class="stat-tile"><div class="stat-label">Annual Equivalent</div><div class="stat-value v2">${fmtMoney(annualTotal)}</div><div class="stat-sub">across all bills</div></div>
-    <div class="stat-tile"><div class="stat-label">Paid This Cycle</div><div class="stat-value v3">${paidCount} / ${BILLS.length}</div><div class="stat-sub">bills marked paid</div></div>`;
+    <div class="stat-tile"><div class="stat-label">This Month</div><div class="stat-value v3">${paidThisMonth} / ${totalThisMonth}</div><div class="stat-sub">bills paid this month</div></div>`;
 
-  // Group by frequency
+  // ── Bill list grouped by frequency ──
   const groups={};
-  withDue.forEach(b=>{if(!groups[b.freq])groups[b.freq]=[];groups[b.freq].push(b);});
+  BILLS.forEach(b=>{if(!groups[b.freq])groups[b.freq]=[];groups[b.freq].push(b);});
   const freqOrder=["weekly","biweekly","monthly","bimonthly","quarterly","biannual","annual"];
   document.getElementById("bills-list").innerHTML=freqOrder.filter(f=>groups[f]).map(f=>{
     const bills=groups[f];
@@ -1772,20 +1818,45 @@ function renderBills(){
         <div class="card-title" style="margin-bottom:0;">${FREQ_LABELS[f]}</div>
         <div style="font-size:12px;color:var(--text2);">${fmtMoney(subtotal)} / cycle</div>
       </div>
-      <div class="table-wrap"><table style="min-width:500px;"><thead><tr><th>Name</th><th>Amount</th><th>Next Due</th><th>Who</th><th>Card</th><th>Category</th><th>Status</th><th></th></tr></thead><tbody>
-      ${bills.map(b=>`<tr style="${b.paidThisCycle?"opacity:0.5":""}">
-        <td><strong>${b.name}</strong>${b.note?`<div style="font-size:10px;color:var(--text3);">${b.note}</div>`:""}</td>
-        <td class="amount-cell">${fmtMoney(b.amount)}</td>
-        <td style="white-space:nowrap;color:var(--text2);">${fmtDate(b.nextDue)}<div style="font-size:10px;color:${b.daysLeft<=7?"var(--warn)":"var(--text3)"};">${b.daysLeft<=0?"Due now":b.daysLeft===1?"1 day":b.daysLeft<=30?`${b.daysLeft} days`:""}</div></td>
-        <td><span class="tag ${(b.who||"").toLowerCase()}">${b.who||""}</span></td>
-        <td style="font-size:11px;color:var(--text3);">${b.card||""}</td>
-        <td style="font-size:11px;">${b.cat||""}</td>
-        <td><button onclick="toggleBillPaid('${b.id}')" class="btn btn-sm ${b.paidThisCycle?"btn-secondary":"btn-primary"}" style="white-space:nowrap;">${b.paidThisCycle?"✓ Paid":"Mark Paid"}</button></td>
-        <td><button class="btn-danger" onclick="removeBill('${b.id}')">✕</button></td>
-      </tr>`).join("")}
-      </tbody></table></div>
+      ${bills.map(b=>{
+        const next=getNextOccurrence(b);
+        const totalOccs=(b.occurrences||[]).length;
+        const paidOccs=(b.occurrences||[]).filter(o=>o.paid).length;
+        const endLabel=b.endDate?`Ends ${fmtDate(b.endDate)}`:"No end date";
+        return`<div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;margin-bottom:10px;overflow:hidden;">
+          <div style="display:flex;align-items:center;gap:12px;padding:12px 14px;flex-wrap:wrap;">
+            <div style="flex:1;min-width:160px;">
+              <div style="font-weight:500;font-size:13px;">${b.name}${b.note?`<span style="font-size:10px;font-weight:400;color:var(--text3);margin-left:8px;">${b.note}</span>`:""}</div>
+              <div style="font-size:11px;color:var(--text3);margin-top:3px;">${b.who} · ${b.card}${b.cat?` · ${b.cat}`:""} · ${endLabel}</div>
+              <div style="font-size:11px;color:var(--text2);margin-top:2px;">${paidOccs}/${totalOccs} paid · next: ${next?fmtDate(next.date):"all done"}</div>
+            </div>
+            <div style="font-family:var(--font-display);font-size:20px;color:var(--spend1);">${fmtMoney(b.amount)}</div>
+            <button class="btn-danger" onclick="removeBill('${b.id}')">Remove</button>
+            <button class="btn btn-secondary btn-sm" onclick="toggleBillSchedule('${b.id}')">View Schedule</button>
+          </div>
+          <div id="sched-${b.id}" style="display:none;border-top:1px solid var(--border);">
+            <div class="table-wrap"><table style="min-width:400px;"><thead><tr><th>#</th><th>Due Date</th><th>Status</th><th>Action</th></tr></thead><tbody>
+            ${(b.occurrences||[]).map((o,i)=>{
+              const days=daysUntil(o.date);
+              const isPast=days<0;
+              return`<tr style="${o.paid?"opacity:0.45":""}${isPast&&!o.paid?"background:rgba(196,122,106,0.05)":""}">
+                <td style="color:var(--text3);font-size:11px;">${i+1}</td>
+                <td><input type="date" value="${o.date}" onchange="updateOccurrenceDate('${b.id}',${i},this.value)" style="padding:3px 6px;font-size:11px;width:140px;"></td>
+                <td style="font-size:11px;">${o.paid?'<span style="color:var(--crystal-light);">✓ Paid</span>':isPast?'<span style="color:var(--danger);">Overdue</span>':`<span style="color:var(--text3);">${days===0?"Due today":days===1?"Tomorrow":`${days} days`}</span>`}</td>
+                <td><button onclick="toggleOccurrencePaid('${b.id}',${i})" class="btn btn-sm ${o.paid?"btn-secondary":"btn-primary"}">${o.paid?"Unpay":"Pay"}</button></td>
+              </tr>`;
+            }).join("")}
+            </tbody></table></div>
+          </div>
+        </div>`;
+      }).join("")}
     </div>`;
   }).join("");
+}
+
+function toggleBillSchedule(billId){
+  const el=document.getElementById("sched-"+billId);
+  if(el)el.style.display=el.style.display==="none"?"block":"none";
 }
 
 function showToast(msg,isError=false){const t=document.getElementById("toast");t.textContent=msg;t.className=isError?"error":"";t.classList.add("show");setTimeout(()=>t.classList.remove("show"),2500);}
