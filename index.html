@@ -283,70 +283,70 @@ td.date-col,th.date-col{width:110px;white-space:nowrap;}
     <div id="dash-contrib-stats" class="stat-row" style="margin-bottom:0;"></div>
   </div>
 
-  <!-- SPENDING OVERVIEW SECTION -->
+  <!-- SPENDING STATS -->
   <div class="card section">
-    <div class="card-title" style="margin-bottom:14px;">Spending Overview & Trends</div>
-
-    <!-- Stats -->
+    <div class="card-title">Spending Overview & Trends</div>
     <div class="stat-row" id="dash-primary-stats" style="margin-bottom:10px;"><div class="loading" style="grid-column:1/-1">Loading…</div></div>
-    <div id="dash-running-wrap" style="margin-bottom:16px;"></div>
+    <div id="dash-running-wrap" style="margin-bottom:0;"></div>
+  </div>
 
-    <!-- Category + Donut -->
-    <div class="two-col section" style="margin-bottom:16px;">
-      <div>
-        <div class="card-title">Spending by Category</div>
-        <div class="filter-row">
-          <select id="d-year" onchange="updateDependentFilters('d');renderDashboard()"><option value="all">All Years</option></select>
-          <select id="d-month" onchange="renderDashboard()"><option value="all">All Months</option></select>
-          <select id="d-week" onchange="renderDashboard()"><option value="all">All Weeks</option></select>
-          <select id="d-who" onchange="renderDashboard()"><option value="all">All Spenders</option><option value="Crystal">Crystal</option><option value="Aaron">Aaron</option><option value="Both">Both</option></select>
-          <select id="d-card" onchange="renderDashboard()"><option value="all">All Cards</option><option value="Credit (Chase)">Chase</option><option value="Credit (Amex)">Amex</option><option value="Debit (SoFi)">SoFi</option></select>
-        </div>
-        <div class="bar-chart" id="category-bars"></div>
+  <!-- SPENDING BY CATEGORY + SPENDING BY PERSON (side by side, full width) -->
+  <div class="two-col section">
+    <div class="card">
+      <div class="card-title">Spending by Category</div>
+      <div class="filter-row">
+        <select id="d-year" onchange="updateDependentFilters('d');renderDashboard()"><option value="all">All Years</option></select>
+        <select id="d-month" onchange="renderDashboard()"><option value="all">All Months</option></select>
+        <select id="d-week" onchange="renderDashboard()"><option value="all">All Weeks</option></select>
+        <select id="d-who" onchange="renderDashboard()"><option value="all">All Spenders</option><option value="Crystal">Crystal</option><option value="Aaron">Aaron</option><option value="Both">Both</option></select>
+        <select id="d-card" onchange="renderDashboard()"><option value="all">All Cards</option><option value="Credit (Chase)">Chase</option><option value="Credit (Amex)">Amex</option><option value="Debit (SoFi)">SoFi</option></select>
       </div>
-      <div>
-        <div class="card-title">Spending by Person</div>
-        <div class="donut-wrap">
-          <div class="donut-canvas-wrap"><canvas id="donut-canvas" width="360" height="360"></canvas></div>
-          <div class="donut-legend" id="donut-legend"></div>
-        </div>
+      <div class="bar-chart" id="category-bars"></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Spending by Person</div>
+      <div class="donut-wrap">
+        <div class="donut-canvas-wrap"><canvas id="donut-canvas" width="360" height="360"></canvas></div>
+        <div class="donut-legend" id="donut-legend"></div>
       </div>
     </div>
+  </div>
 
-    <!-- Monthly Trend -->
-    <div style="margin-bottom:16px;">
+  <!-- MONTHLY TREND + MONTH COMPARISON (side by side, under the two above) -->
+  <div class="two-col section">
+    <div class="card">
       <div class="card-title">Monthly Trend</div>
       <div class="trend-wrap" id="trend-wrap"><canvas id="trend-canvas"></canvas></div>
     </div>
-
-    <!-- Month Comparison -->
-    <div style="margin-bottom:16px;">
-      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:12px;">
+    <div class="card">
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:12px;">
         <div class="card-title" style="margin-bottom:0;">Month Comparison</div>
         <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-          <span style="font-size:11px;color:var(--text2);">Compare this month vs</span>
-          <select id="d-compare-month" onchange="renderCompareChart()" style="width:auto;padding:5px 9px;font-size:12px;"><option value="">Last Month</option></select>
+          <span style="font-size:10px;color:var(--text2);">vs</span>
+          <select id="d-compare-month" onchange="renderCompareChart()" style="width:auto;padding:4px 8px;font-size:11px;"><option value="">Last Month</option></select>
         </div>
       </div>
-      <div id="compare-legend" style="display:flex;gap:16px;margin-bottom:10px;flex-wrap:wrap;"></div>
+      <div id="compare-legend" style="display:flex;gap:14px;margin-bottom:8px;flex-wrap:wrap;"></div>
       <div class="trend-wrap"><canvas id="compare-canvas"></canvas></div>
     </div>
+  </div>
 
-    <!-- Top Categories by Month -->
-    <div style="margin-bottom:16px;">
-      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:12px;">
+  <!-- TOP CATEGORIES BY MONTH + RECENT TRANSACTIONS (side by side) -->
+  <div class="two-col section">
+    <div class="card">
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:12px;">
         <div class="card-title" style="margin-bottom:0;">Top Categories by Month</div>
-        <select id="d-cat-month" onchange="renderCatByMonth()" style="width:auto;padding:5px 9px;font-size:12px;"><option value="">This Month</option></select>
+        <select id="d-cat-month" onchange="renderCatByMonth()" style="width:auto;padding:4px 8px;font-size:11px;"><option value="">This Month</option></select>
       </div>
       <div id="cat-by-month"></div>
     </div>
-
-    <!-- Recent Transactions -->
-    <div>
+    <div class="card">
       <div class="card-title">Recent Transactions</div>
       <div class="table-wrap" id="recent-table"><div class="loading">Loading…</div></div>
     </div>
   </div>
+
+</div>
 
 <!-- TRANSACTIONS (unified: add + import + list) -->
 <div id="view-transactions" class="view">
