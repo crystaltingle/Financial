@@ -935,9 +935,22 @@ function renderDashboard(){
   if(cbm){const cur2=cbm.value;cbm.innerHTML=`<option value="">This Month (${tm})</option>`;[...new Set(txnCache.map(t=>t.month))].filter(Boolean).sort((a,b)=>new Date(b)-new Date(a)).forEach(m=>cbm.innerHTML+=`<option value="${m}">${m}</option>`);if(cur2)cbm.value=cur2;}
 
   renderCompareChart();
-  renderCatByMonth();
 
-  document.getElementById("recent-table").innerHTML=buildTxnTable([...txnCache].sort((a,b)=>b.date.localeCompare(a.date)).slice(0,8),false);
+  document.getElementById("recent-table").innerHTML=buildSimpleTxnTable([...txnCache].sort((a,b)=>b.date.localeCompare(a.date)).slice(0,10));
+}
+
+function buildSimpleTxnTable(txns){
+  if(!txns.length)return'<div class="empty">No transactions yet</div>';
+  return`<table style="min-width:500px;"><thead><tr>
+    <th>Date</th><th>Store</th><th>Category</th><th>Amount</th><th>Who</th><th>Note</th>
+  </tr></thead><tbody>${txns.map(t=>`<tr>
+    <td style="white-space:nowrap;color:var(--text2);font-size:12px;">${fmtDate(t.date)}</td>
+    <td style="font-size:12px;">${t.store||""}</td>
+    <td style="font-size:11px;color:var(--text2);">${t.category||""}</td>
+    <td class="amount-cell" style="font-size:12px;">${fmtMoney(t.amount)}</td>
+    <td><span class="tag ${(t.who||"").toLowerCase()}" style="font-size:10px;">${t.who||""}</span></td>
+    <td style="font-size:11px;color:var(--text3);">${t.note||""}</td>
+  </tr>`).join("")}</tbody></table>`;
 }
 
 function renderDashContrib(){
