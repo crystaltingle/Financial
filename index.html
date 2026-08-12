@@ -1068,7 +1068,13 @@ function parseTravelCSV(text){
   document.getElementById("tv-import-review-area").style.display="block";
   renderTravelImportSummary();renderTravelReviewRows();
 }
-function applyTripToAll(){const trip=document.getElementById("tv-import-trip").value;travelImportRows.forEach(r=>{if(!r.saved)r.trip=trip;});renderTravelReviewRows();showToast("Trip applied to all rows");}
+function applyTripToAll(){
+  const trip=document.getElementById("tv-import-trip").value;
+  if(!trip){showToast("Select a trip first",true);return;}
+  travelImportRows.forEach(r=>{if(!r.saved)r.trip=trip;});
+  renderTravelReviewRows();
+  showToast("Trip applied to all rows");
+}
 function renderTravelImportSummary(){
   const dups=travelImportRows.filter(r=>r.isDuplicate).length,news=travelImportRows.filter(r=>!r.isDuplicate).length,saved=travelImportRows.filter(r=>r.saved).length;
   document.getElementById("tv-import-summary").innerHTML="<span>&#128196; <strong>"+travelImportRows.length+"</strong> in file</span><span style=\"color:#8aaa8a\">&#10003; <strong>"+news+"</strong> new</span><span style=\"color:var(--danger)\">&#9888; <strong>"+dups+"</strong> duplicates</span><span style=\"color:var(--accent)\">&#128190; <strong>"+saved+"</strong> saved</span>";
@@ -1078,6 +1084,15 @@ function renderTravelReviewRows(){
   const subcatOpts=TRAVEL_SUBCATS.map(s=>"<option value=\""+s+"\">"+s+"</option>").join("");
   const tripOpts=TRIPS.map(t=>"<option value=\""+getTripId(t)+"\">"+getTripName(t)+"</option>").join("");
   document.getElementById("tv-review-rows").innerHTML=travelImportRows.map((row,i)=>"<div class=\"review-row"+(row.skipped?" skipped":"")+"\"><div class=\"review-top\"><span class=\"review-date\">"+fmtDate(row.date)+"</span><span class=\"review-store\">"+row.store+"</span><span class=\"review-amount\">"+fmtMoney(row.amount)+"</span><span style=\"font-size:10px;color:var(--text3)\">"+row.charge_type+"</span>"+(row.isDuplicate?"<span class=\"dup-badge\">likely duplicate</span>":"")+(row.saved?"<span class=\"dup-badge\" style=\"background:rgba(138,170,138,0.15);color:#a0c0a4;border-color:rgba(138,170,138,0.3)\">&#10003; saved</span>":"")+"</div>"+(row.saved?"":"<div class=\"review-fields\"><div class=\"form-group\"><label>Trip</label><select onchange=\"travelImportRows["+i+"].trip=this.value\"><option value=\"\">-- No trip --</option>"+tripOpts+"</select></div><div class=\"form-group\"><label>Subcategory</label><select onchange=\"travelImportRows["+i+"].subcat=this.value\"><option value=\"\">-- None --</option>"+subcatOpts+"</select></div><div class=\"form-group\"><label>Who</label><select onchange=\"travelImportRows["+i+"].who=this.value\"><option value=\"Both\">Both</option><option value=\"Crystal\">Crystal</option><option value=\"Aaron\">Aaron</option></select></div><div class=\"form-group\"><label>Note</label><input type=\"text\" placeholder=\"optional\" oninput=\"travelImportRows["+i+"].note=this.value\"></div></div><div class=\"review-actions\"><button class=\"btn btn-secondary btn-sm\" onclick=\"skipTravelImportRow("+i+")\">"+( row.skipped?"Unskip":"Skip")+"</button></div>")+"</div>").join("");
+  // Restore saved field values (trip, subcat, who) after re-render
+  travelImportRows.forEach((row,i)=>{
+    if(row.saved)return;
+    const rowEl=document.querySelectorAll("#tv-review-rows .review-row")[i];if(!rowEl)return;
+    const sels=rowEl.querySelectorAll("select");
+    if(sels[0]&&row.trip)sels[0].value=row.trip;
+    if(sels[1]&&row.subcat)sels[1].value=row.subcat;
+    if(sels[2]&&row.who)sels[2].value=row.who;
+  });
   renderTravelImportSummary();
 }
 function skipTravelImportRow(i){travelImportRows[i].skipped=!travelImportRows[i].skipped;renderTravelReviewRows();}
@@ -1171,7 +1186,11 @@ async function editTripName(tripId){
 }
 async function setTripType(tripId,type){
   const trip=TRIPS.find(t=>getTripId(t)===tripId);if(!trip||typeof trip==="string")return;
-  trip.type=type;await saveSetting("trips",TRIPS);renderTravel();
+  trip.type=type;await saveSetting("trips",TRIPS);
+  renderTripSection("big","travel-big-trips");
+  renderTripSection("weekend","travel-weekend-trips");
+  renderTravelSubcatSummary();
+  showToast("Trip type updated");
 }
 async function addTravelSubcat(){
   const inp=document.getElementById("new-subcat-input"),val=inp.value.trim();if(!val)return;
