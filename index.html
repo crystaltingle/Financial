@@ -471,7 +471,7 @@ tr:hover td{background:rgba(255,255,255,0.015);}
       <div class="card-title">Manage Trips</div>
       <div style="display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap;">
         <input type="text" id="new-trip-input" placeholder="e.g. Iceland 2026" style="flex:1;min-width:120px;">
-        <select id="new-trip-type" style="width:auto;padding:7px 10px;font-size:12px;"><option value="big">Big Trip</option><option value="weekend">Weekend Trip</option></select>
+        <select id="new-trip-type" style="width:auto;padding:7px 10px;font-size:12px;"><option value="international">International</option><option value="us">US Trip</option></select>
         <button class="btn btn-primary btn-sm" onclick="addTrip()">+ Add</button>
       </div>
       <div id="trip-list"></div>
@@ -490,11 +490,11 @@ tr:hover td{background:rgba(255,255,255,0.015);}
     <div id="travel-subcat-summary"></div>
   </div>
   <div class="card section">
-    <div class="card-title" style="margin-bottom:12px;">Big Trips</div>
+    <div class="card-title" style="margin-bottom:12px;">International Trips</div>
     <div id="travel-big-trips"></div>
   </div>
   <div class="card section">
-    <div class="card-title" style="margin-bottom:12px;">Weekend Trips</div>
+    <div class="card-title" style="margin-bottom:12px;">US Trips</div>
     <div id="travel-weekend-trips"></div>
   </div>
   <div class="card section">
@@ -613,7 +613,7 @@ const DEFAULT_GOALS={2025:{aaron401k:23000,aaronIRA:7000,aaronBrok:15000,crystal
 let CATEGORIES=[...DEFAULT_CATEGORIES],HOBBIES=[...DEFAULT_HOBBIES],TRIPS=[...DEFAULT_TRIPS],TRAVEL_SUBCATS=[...DEFAULT_TRAVEL_SUBCATS],GOALS={...DEFAULT_GOALS};
 // TRIPS are objects: {id, name, type:"big"|"weekend"}
 function getTripName(t){return typeof t==="string"?t:t.name;}
-function getTripType(t){return typeof t==="string"?"big":(t.type||"big");}
+function getTripType(t){return typeof t==="string"?"international":(t.type||"international");}
 function getTripId(t){return typeof t==="string"?t:(t.id||t.name);}
 async function loadSettings(){
   try{
@@ -1161,7 +1161,7 @@ function renderHobbyTransactions(){
 // ── TRAVEL TAB ────────────────────────────────────────────────────────────────
 async function addTrip(){
   const inp=document.getElementById("new-trip-input"),val=inp.value.trim();if(!val)return;
-  const type=document.getElementById("new-trip-type")?.value||"big";
+  const type=document.getElementById("new-trip-type")?.value||"international";
   if(TRIPS.find(t=>getTripName(t)===val)){showToast("Already exists",true);return;}
   TRIPS.push({id:"trip_"+Date.now(),name:val,type});inp.value="";
   await saveSetting("trips",TRIPS);refreshAllDropdowns();renderTravel();showToast("Trip added");
@@ -1181,14 +1181,14 @@ async function editTripName(tripId){
   if(TRIPS.find(t=>getTripName(t)===newName)){showToast("Name already exists",true);return;}
   const toUpdate=travelTagCache.filter(r=>r.location===old);
   if(toUpdate.length){await sb.from("travel_tags").update({location:newName}).eq("location",old);toUpdate.forEach(r=>r.location=newName);}
-  if(typeof trip==="string"){const i=TRIPS.indexOf(trip);TRIPS[i]={id:newName,name:newName,type:"big"};}else trip.name=newName;
+  if(typeof trip==="string"){const i=TRIPS.indexOf(trip);TRIPS[i]={id:newName,name:newName,type:"international"};}else trip.name=newName;
   await saveSetting("trips",TRIPS);refreshAllDropdowns();renderTravel();showToast("Renamed");
 }
 async function setTripType(tripId,type){
   const trip=TRIPS.find(t=>getTripId(t)===tripId);if(!trip||typeof trip==="string")return;
   trip.type=type;await saveSetting("trips",TRIPS);
-  renderTripSection("big","travel-big-trips");
-  renderTripSection("weekend","travel-weekend-trips");
+  renderTripSection("international","travel-big-trips");
+  renderTripSection("us","travel-weekend-trips");
   renderTravelSubcatSummary();
   showToast("Trip type updated");
 }
@@ -1230,10 +1230,29 @@ function renderTravel(){
   const tvSubcatFilter=document.getElementById("tv-subcat-filter");if(tvSubcatFilter){const cur=tvSubcatFilter.value;tvSubcatFilter.innerHTML='<option value="all">All Subcategories</option>';TRAVEL_SUBCATS.forEach(s=>tvSubcatFilter.innerHTML+='<option value="'+s+'">'+s+'</option>');if(cur)tvSubcatFilter.value=cur;}
   const dateEl=document.getElementById("tv-add-date");if(dateEl&&!dateEl.value)dateEl.value=new Date().toISOString().slice(0,10);
   const tl=document.getElementById("trip-list");
-  if(tl)tl.innerHTML=TRIPS.map(t=>{const id=getTripId(t),name=getTripName(t),type=getTripType(t);return'<div class="cat-item"><span style="flex:1;">'+name+'</span><select onchange="setTripType(\''+id+'\',this.value)" style="padding:3px 6px;font-size:10px;background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:4px;margin-right:4px;"><option value="big"'+(type==="big"?" selected":"")+'>Big Trip</option><option value="weekend"'+(type==="weekend"?" selected":"")+'>Weekend</option></select><button class="btn-secondary btn-sm" onclick="editTripName(\''+id+'\')" style="padding:3px 8px;font-size:10px;">&#9998;</button><button class="btn-danger btn-sm" onclick="removeTrip(\''+id+'\')">Remove</button></div>';}).join("")||'<div class="empty">No trips yet</div>';
+  if(tl){
+    if(!TRIPS.length){tl.innerHTML='<div class="empty">No trips yet</div>';}
+    else{
+      tl.innerHTML="";
+      TRIPS.forEach((t,i)=>{
+        const id=getTripId(t),name=getTripName(t),type=getTripType(t);
+        const div=document.createElement("div");div.className="cat-item";
+        const nameSpan=document.createElement("span");nameSpan.style.flex="1";nameSpan.textContent=name;
+        const sel=document.createElement("select");
+        sel.style.cssText="padding:3px 6px;font-size:10px;background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:4px;margin-right:4px;";
+        sel.innerHTML='<option value="international">International</option><option value="us">US Trip</option>';
+        sel.value=type;
+        sel.addEventListener("change",function(){setTripType(id,this.value);});
+        const editBtn=document.createElement("button");editBtn.className="btn-secondary btn-sm";editBtn.style.cssText="padding:3px 8px;font-size:10px;";editBtn.innerHTML="&#9998;";editBtn.addEventListener("click",function(){editTripName(id);});
+        const delBtn=document.createElement("button");delBtn.className="btn-danger btn-sm";delBtn.textContent="Remove";delBtn.addEventListener("click",function(){removeTrip(id);});
+        div.appendChild(nameSpan);div.appendChild(sel);div.appendChild(editBtn);div.appendChild(delBtn);
+        tl.appendChild(div);
+      });
+    }
+  }
   const sl=document.getElementById("subcat-list");if(sl)sl.innerHTML=TRAVEL_SUBCATS.map((s,i)=>'<div class="cat-item"><span>'+s+'</span><button class="btn-secondary btn-sm" onclick="editTravelSubcat('+i+')" style="padding:3px 8px;font-size:10px;">&#9998;</button><button class="btn-danger btn-sm" onclick="removeTravelSubcat('+i+')">Remove</button></div>').join("")||'<div class="empty">No subcategories yet</div>';
   const lf=document.getElementById("tv-loc-filter");if(lf){const cur=lf.value;lf.innerHTML='<option value="all">All Trips</option>';TRIPS.forEach(t=>lf.innerHTML+='<option value="'+getTripId(t)+'">'+getTripName(t)+'</option>');if(cur)lf.value=cur;}
-  renderTravelSubcatSummary();renderTripSection("big","travel-big-trips");renderTripSection("weekend","travel-weekend-trips");renderTravelTransactions();
+  renderTravelSubcatSummary();renderTripSection("international","travel-big-trips");renderTripSection("us","travel-weekend-trips");renderTravelTransactions();
 }
 function renderTravelSubcatSummary(){
   const travelMap=getTravelMap(),subcatMap=getTravelSubcatMap();
@@ -1248,7 +1267,7 @@ function renderTripSection(type,containerId){
   const travelMap=getTravelMap(),subcatMap=getTravelSubcatMap();
   const el=document.getElementById(containerId);if(!el)return;
   const trips=TRIPS.filter(t=>getTripType(t)===type);
-  if(!trips.length){el.innerHTML='<div class="empty">No '+(type==="big"?"big":"weekend")+' trips yet</div>';return;}
+  if(!trips.length){el.innerHTML='<div class="empty">No '+(type==="international"?"International":"US")+' trips yet</div>';return;}
   el.innerHTML=trips.map(trip=>{
     const tripId=getTripId(trip),tripName=getTripName(trip);
     const txns=txnCache.filter(t=>isTravelCat(t.category)&&travelMap[t.id]===tripId);
