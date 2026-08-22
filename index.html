@@ -273,6 +273,10 @@ tr:hover td{background:rgba(255,255,255,0.015);}
     <div class="trend-wrap" style="overflow-x:auto;"><canvas id="compare-canvas" style="display:block;max-width:none;"></canvas></div>
   </div>
   <div class="card section">
+    <div class="card-title">Daily Averages</div>
+    <div class="stat-row" id="dash-daily-avgs"></div>
+  </div>
+  <div class="card section">
     <div class="card-title">Recent Transactions</div>
     <div class="table-wrap" id="recent-table"><div class="loading">Loading...</div></div>
   </div>
@@ -802,7 +806,24 @@ function renderDashboard(){
   const ty=thisYear(),tyT=txnCache.filter(t=>t.year===ty),tyTot=tyT.reduce((s,t)=>s+parseFloat(t.amount),0);
   const tm=thisMonthLabel(),tmT=txnCache.filter(t=>t.month===tm),tmTot=tmT.reduce((s,t)=>s+parseFloat(t.amount),0);
   const lm=lastMonthLabel(),lmT=txnCache.filter(t=>t.month===lm),lmTot=lmT.reduce((s,t)=>s+parseFloat(t.amount),0);
-  document.getElementById("dash-primary-stats").innerHTML="<div class=\"stat-tile\"><div class=\"stat-label\">This Year</div><div class=\"stat-value\">"+fmtMoney(tyTot)+"</div><div class=\"stat-sub\">"+tyT.length+" transactions</div></div><div class=\"stat-tile\"><div class=\"stat-label\">This Month</div><div class=\"stat-value v2\">"+fmtMoney(tmTot)+"</div><div class=\"stat-sub\">"+tmT.length+" transactions</div></div><div class=\"stat-tile\"><div class=\"stat-label\">Last Month</div><div class=\"stat-value v3\">"+fmtMoney(lmTot)+"</div><div class=\"stat-sub\">"+lmT.length+" transactions</div></div><div class=\"stat-tile\"><div class=\"stat-label\">All Time</div><div class=\"stat-value\" style=\"color:var(--text2);font-size:18px;\">"+fmtMoney(allTimeTotal)+"</div><div class=\"stat-sub\">"+txnCache.length+" txns</div></div>";
+  // Daily averages
+  const today=new Date();
+  const dayOfYear=Math.ceil((today-new Date(today.getFullYear(),0,1))/86400000)+1;
+  const dayOfMonth=today.getDate();
+  let allTimeDays=0;
+  if(txnCache.length){const dates=txnCache.map(t=>new Date(t.date+"T12:00:00"));const minD=new Date(Math.min(...dates));allTimeDays=Math.max(1,Math.ceil((today-minD)/86400000)+1);}
+  const allTimeAvg=allTimeDays>0?allTimeTotal/allTimeDays:0;
+  const yearAvg=dayOfYear>0?tyTot/dayOfYear:0;
+  const monthAvg=dayOfMonth>0?tmTot/dayOfMonth:0;
+  document.getElementById("dash-primary-stats").innerHTML=
+    '<div class="stat-tile"><div class="stat-label">This Year</div><div class="stat-value">'+fmtMoney(tyTot)+'</div><div class="stat-sub">'+tyT.length+' transactions</div></div>'+
+    '<div class="stat-tile"><div class="stat-label">This Month</div><div class="stat-value v2">'+fmtMoney(tmTot)+'</div><div class="stat-sub">'+tmT.length+' transactions</div></div>'+
+    '<div class="stat-tile"><div class="stat-label">Last Month</div><div class="stat-value v3">'+fmtMoney(lmTot)+'</div><div class="stat-sub">'+lmT.length+' transactions</div></div>'+
+    '<div class="stat-tile"><div class="stat-label">All Time</div><div class="stat-value" style="color:var(--text2);font-size:18px;">'+fmtMoney(allTimeTotal)+'</div><div class="stat-sub">'+txnCache.length+' txns</div></div>';
+  document.getElementById("dash-daily-avgs").innerHTML=
+    '<div class="stat-tile dim"><div class="stat-label">Daily Avg — All Time</div><div class="stat-value" style="font-size:18px;color:var(--text2);">'+fmtMoney(allTimeAvg)+'</div><div class="stat-sub">over '+allTimeDays+' days</div></div>'+
+    '<div class="stat-tile dim"><div class="stat-label">Daily Avg — This Year</div><div class="stat-value" style="font-size:18px;color:var(--spend2);">'+fmtMoney(yearAvg)+'</div><div class="stat-sub">day '+dayOfYear+' of '+ty+'</div></div>'+
+    '<div class="stat-tile dim"><div class="stat-label">Daily Avg — This Month</div><div class="stat-value" style="font-size:18px;color:var(--spend3);">'+fmtMoney(monthAvg)+'</div><div class="stat-sub">day '+dayOfMonth+' of month</div></div>';
   document.getElementById("dash-running-wrap").innerHTML="<div style=\"display:flex;gap:10px;margin-top:8px;\"><div class=\"stat-tile dim\" style=\"display:inline-flex;gap:14px;align-items:center;padding:9px 14px;border-radius:8px;flex:1;min-width:160px;\"><span style=\"font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:0.08em;\">Filtered Total</span><span style=\"font-family:var(--font-display);font-size:17px;color:var(--text2)\">"+fmtMoney(filteredTotal)+"</span><span style=\"font-size:10px;color:var(--text3)\">"+filtered.length+" txns</span></div></div>";
   renderDashContrib();
   const cats=getCatTotals(filtered).sort((a,b)=>b.total-a.total),maxC=cats[0]?.total||1;
@@ -1185,8 +1206,14 @@ async function editTripName(tripId){
   await saveSetting("trips",TRIPS);refreshAllDropdowns();renderTravel();showToast("Renamed");
 }
 async function setTripType(tripId,type){
-  const trip=TRIPS.find(t=>getTripId(t)===tripId);if(!trip||typeof trip==="string")return;
-  trip.type=type;await saveSetting("trips",TRIPS);
+  const idx=TRIPS.findIndex(t=>getTripId(t)===tripId);if(idx<0)return;
+  // Upgrade legacy string to object if needed
+  if(typeof TRIPS[idx]==="string"){
+    TRIPS[idx]={id:TRIPS[idx],name:TRIPS[idx],type};
+  } else {
+    TRIPS[idx].type=type;
+  }
+  await saveSetting("trips",TRIPS);
   renderTripSection("international","travel-big-trips");
   renderTripSection("us","travel-weekend-trips");
   renderTravelSubcatSummary();
@@ -1270,7 +1297,8 @@ function renderTripSection(type,containerId){
   if(!trips.length){el.innerHTML='<div class="empty">No '+(type==="international"?"International":"US")+' trips yet</div>';return;}
   el.innerHTML=trips.map(trip=>{
     const tripId=getTripId(trip),tripName=getTripName(trip);
-    const txns=txnCache.filter(t=>isTravelCat(t.category)&&travelMap[t.id]===tripId);
+    // Match by id OR by name (legacy trips stored name as location in travel_tags)
+    const txns=txnCache.filter(t=>isTravelCat(t.category)&&(travelMap[t.id]===tripId||travelMap[t.id]===tripName));
     const total=txns.reduce((s,t)=>s+parseFloat(t.amount),0);
     const subcatTotals={};txns.forEach(t=>{const sub=subcatMap[t.id]||"Untagged";subcatTotals[sub]=(subcatTotals[sub]||0)+parseFloat(t.amount);});
     const maxV=Math.max(...Object.values(subcatTotals),1);
