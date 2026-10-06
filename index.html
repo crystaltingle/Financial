@@ -203,6 +203,7 @@ tr:hover td{background:rgba(255,255,255,0.015);}
     <button class="nav-tab" onclick="showView('contributions')">Contributions</button>
     <button class="nav-tab" onclick="showView('hobbies')">Hobbies</button>
     <button class="nav-tab" onclick="showView('travel')">Travel</button>
+    <button class="nav-tab" onclick="showView('house')">House</button>
     <button class="nav-tab" onclick="showView('bills')">Bills</button>
     <button class="nav-tab" onclick="showView('settings')">Settings</button>
   </div>
@@ -397,6 +398,41 @@ tr:hover td{background:rgba(255,255,255,0.015);}
   </div>
 </div>
 
+<!-- HOUSE -->
+<div id="view-house" class="view">
+  <div class="page-header"><div class="header-actions"><div><h1>House</h1><p>Every dollar that goes into the house</p></div><div style="display:flex;gap:8px;flex-wrap:wrap;"><button class="btn btn-secondary btn-sm" onclick="togglePanel('house-add-panel')">+ Add Expense</button><button class="btn btn-secondary btn-sm" onclick="togglePanel('house-setup-panel')">&#9881; Setup</button></div></div></div>
+  <div id="house-add-panel" style="display:none;margin-bottom:14px;"><div class="card"><div class="card-title">Add House Expense</div>
+    <div class="form-grid">
+      <div class="form-group"><label>Date</label><input type="date" id="hs-add-date"></div>
+      <div class="form-group"><label>Payee / Description</label><input type="text" id="hs-add-store" placeholder="e.g. Title company"></div>
+      <div class="form-group"><label>Amount ($)</label><input type="number" id="hs-add-amount" step="0.01" min="0" placeholder="0.00"></div>
+      <div class="form-group"><label>Note (optional)</label><input type="text" id="hs-add-note" placeholder="optional"></div>
+      <div class="form-group"><label>Category</label><div id="hs-add-cat-combo"></div></div>
+      <div class="form-group"><label>House Subcategory</label><div id="hs-add-subcat-combo"></div></div>
+      <div class="form-group"><label>Who</label><div id="hs-add-who-combo"></div></div>
+      <div class="form-group"><label>Paid With</label><div id="hs-add-card-combo"></div></div>
+      <div class="form-group full"><button class="btn btn-primary" onclick="addHouseTransaction()">Save Expense</button></div>
+    </div>
+  </div></div>
+  <div id="house-setup-panel" style="display:none;margin-bottom:14px;"><div class="card"><div class="card-title">House Setup</div>
+    <div class="form-group" style="margin-bottom:12px;max-width:260px;"><label>Ownership start (closing date)</label><input type="date" id="hs-start-date" onchange="setHouseStart(this.value)"></div>
+    <p style="font-size:11px;color:var(--text3);margin-bottom:12px;line-height:1.5;">Transactions in the checked categories on or after this date count automatically. Anything tagged with a house subcategory always counts, even before this date (earnest money, inspection, appraisal).</p>
+    <label style="margin-bottom:6px;display:block;">Categories that count as house spending</label>
+    <div id="house-cat-list" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:2px 12px;max-height:260px;overflow-y:auto;padding:4px 2px;"></div>
+  </div></div>
+  <div class="stat-row section" id="house-stats"></div>
+  <div class="two-col section">
+    <div class="card"><div class="card-title">Lifetime by Subcategory</div><div id="house-subcat-bars"></div></div>
+    <div class="card"><div class="card-title">House Subcategories</div><div style="display:flex;gap:8px;margin-bottom:12px;"><input type="text" id="new-house-subcat-input" placeholder="e.g. Fence" style="flex:1;"><button class="btn btn-primary btn-sm" onclick="addHouseSubcat()">+ Add</button></div><div id="house-subcat-list" style="max-height:320px;overflow-y:auto;"></div></div>
+  </div>
+  <div class="card section"><div class="card-title">By Year</div><div id="house-year-bars"></div></div>
+  <div class="card section"><div class="card-title">House Transactions</div>
+    <div class="filter-row"><select id="hs-year" onchange="renderHouseTransactions()"></select><select id="hs-subcat" onchange="renderHouseTransactions()"></select><select id="hs-cat" onchange="renderHouseTransactions()"></select><input type="text" id="hs-search" placeholder="Search..." oninput="renderHouseTransactions()"></div>
+    <div id="house-filter-total" style="margin-bottom:10px;"></div>
+    <div class="table-wrap" id="house-transactions"></div>
+  </div>
+</div>
+
 <!-- BILLS -->
 <div id="view-bills" class="view">
   <div class="page-header"><h1>Bills &amp; Recurring</h1><p>Fixed expenses and subscriptions</p></div>
@@ -435,7 +471,7 @@ const SUPABASE_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSI
 const sb=supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
 
 // ── STATE ─────────────────────────────────────────────────────────────────────
-let txnCache=[],contribCache=[],hobbyTagCache=[],travelTagCache=[],travelSubcatCache=[];
+let txnCache=[],contribCache=[],hobbyTagCache=[],travelTagCache=[],travelSubcatCache=[],houseSubcatCache=[];
 let importRows=[],importSource="chase",travelImportRows=[],travelImportSource="chase";
 const openAccordions=new Set();
 
@@ -454,6 +490,11 @@ let HOBBIES=[...DEFAULT_HOBBIES];
 let TRIPS=[...DEFAULT_TRIPS];
 let TRAVEL_SUBCATS=[...DEFAULT_TRAVEL_SUBCATS];
 let GOALS={...DEFAULT_GOALS};
+const DEFAULT_HOUSE_CATS=["Mortgage","House Expense","Home Improvement","Utility","WiFi"];
+const DEFAULT_HOUSE_SUBCATS=["Down Payment","Earnest Money","Closing Costs","Inspection & Appraisal","Moving","Mortgage","Property Tax","Home Insurance","HOA","Utilities","Repairs","Maintenance","Renovation","Appliances","Furniture & Decor","Landscaping & Yard","Tools"];
+let HOUSE_CATS=[...DEFAULT_HOUSE_CATS];
+let HOUSE_SUBCATS=[...DEFAULT_HOUSE_SUBCATS];
+let HOUSE_START="";
 
 // ── TRIP HELPERS (legacy string compat) ───────────────────────────────────────
 function getTripName(t){return typeof t==="string"?t:t.name;}
@@ -476,6 +517,15 @@ async function loadSettings(){
     if(trp&&Array.isArray(trp.value)) TRIPS=trp.value;
     if(sub&&Array.isArray(sub.value)) TRAVEL_SUBCATS=sub.value;
     if(gls&&gls.value) GOALS=gls.value;
+    const hc=get("house_cats"),hs=get("house_subcats"),hd=get("house_start");
+    if(hc&&Array.isArray(hc.value)) HOUSE_CATS=hc.value;
+    if(hs&&Array.isArray(hs.value)) HOUSE_SUBCATS=hs.value;
+    if(hd&&typeof hd.value==="string") HOUSE_START=hd.value;
+    if(cat&&Array.isArray(cat.value)){
+      let changed=false;
+      ["House Expense","Mortgage"].forEach(function(n){if(!CATEGORIES.includes(n)){CATEGORIES.push(n);changed=true;}});
+      if(changed){CATEGORIES.sort(function(a,b){return a.replace(/[^a-z]/gi,"").localeCompare(b.replace(/[^a-z]/gi,""));});saveSetting("categories",CATEGORIES);}
+    }
   } catch(e){console.warn("Settings load failed:",e);}
 }
 
@@ -537,6 +587,7 @@ async function loadAllData(){
     try{const h=await sb.from("hobby_tags").select("*");if(!h.error)hobbyTagCache=h.data||[];}catch{}
     try{const t=await sb.from("travel_tags").select("*");if(!t.error)travelTagCache=t.data||[];}catch{}
     try{const s=await sb.from("travel_subcat_tags").select("*");if(!s.error)travelSubcatCache=s.data||[];}catch{}
+    try{const hsq=await sb.from("house_subcat_tags").select("*");if(!hsq.error)houseSubcatCache=hsq.data||[];}catch{}
     setSyncStatus(true,"live");
     populateAllFilters();
     refreshAllDropdowns();
@@ -710,7 +761,7 @@ async function showView(id){
   document.querySelectorAll(".nav-tab").forEach(function(t){t.classList.remove("active");});
   document.getElementById("view-"+id).classList.add("active");
   const tabs=document.querySelectorAll(".nav-tab");
-  ["dashboard","transactions","contributions","hobbies","travel","bills","settings"].forEach(function(n,i){
+  ["dashboard","transactions","contributions","hobbies","travel","house","bills","settings"].forEach(function(n,i){
     if(n===id) tabs[i].classList.add("active");
   });
   await loadAllData();
@@ -719,6 +770,7 @@ async function showView(id){
   if(id==="contributions") renderContributions();
   if(id==="hobbies") renderHobbies();
   if(id==="travel") renderTravel();
+  if(id==="house") renderHouse();
   if(id==="bills") renderBills();
   if(id==="settings") renderSettings();
 }
@@ -726,7 +778,7 @@ function togglePanel(id){
   const el=document.getElementById(id);
   if(!el) return;
   const isOpen=el.style.display!=="none";
-  ["add-panel","import-panel","travel-add-panel","travel-import-panel"].forEach(function(p){
+  ["add-panel","import-panel","travel-add-panel","travel-import-panel","house-add-panel","house-setup-panel"].forEach(function(p){
     const pe=document.getElementById(p);
     if(pe) pe.style.display="none";
   });
@@ -1515,6 +1567,12 @@ function updateImportRowExtras(i,cat){
     g2.appendChild(makeCombo([""].concat(TRAVEL_SUBCATS),row.subcatTag||"",function(v){importRows[i].subcatTag=v;},"Subcategory...","180px"));
     extraDiv.appendChild(g);extraDiv.appendChild(g2);
   }
+  if(isHouseCat(cat)){
+    const g3=document.createElement("div");g3.style.cssText="display:flex;align-items:center;gap:8px;margin-top:6px;";
+    g3.innerHTML='<label style="white-space:nowrap;">House Subcat</label>';
+    g3.appendChild(makeCombo([""].concat(HOUSE_SUBCATS),row.houseSubcat||"",function(v){importRows[i].houseSubcat=v;},"House subcategory...","180px"));
+    extraDiv.appendChild(g3);
+  }
 }
 function skipImportRow(i){importRows[i].skipped=!importRows[i].skipped;renderReviewRows();}
 async function saveAllReviewed(){
@@ -1532,6 +1590,8 @@ async function saveAllReviewed(){
   if(hobbyTags.length){await sb.from("hobby_tags").insert(hobbyTags);hobbyTagCache.push.apply(hobbyTagCache,hobbyTags);}
   if(tripTags.length){await sb.from("travel_tags").insert(tripTags);travelTagCache.push.apply(travelTagCache,tripTags);}
   if(subcatTags.length){await sb.from("travel_subcat_tags").insert(subcatTags);travelSubcatCache.push.apply(travelSubcatCache,subcatTags);}
+  const houseTags=ready.filter(function(r){return r.houseSubcat;}).map(function(r){return {id:"hs_"+r.id,txn_id:r.id,subcategory:r.houseSubcat};});
+  if(houseTags.length){await sb.from("house_subcat_tags").insert(houseTags);houseSubcatCache.push.apply(houseSubcatCache,houseTags);}
   ready.forEach(function(r){const idx=importRows.findIndex(function(x){return x.id===r.id;});if(idx>=0)importRows[idx].saved=true;});
   txnCache.unshift.apply(txnCache,txns);
   renderReviewRows();showToast(txns.length+" saved");
@@ -2299,6 +2359,195 @@ function renderBills(){
 }
 function toggleBillSchedule(id){const el=document.getElementById("sched-"+id);if(el)el.style.display=el.style.display==="none"?"block":"none";}
 function toggleBillEdit(id){const el=document.getElementById("bill-edit-"+id);if(el)el.style.display=el.style.display==="none"?"block":"none";}
+
+// ── HOUSE ─────────────────────────────────────────────────────────────────────
+const HOUSE_CARDS=["Debit (SoFi)","Credit (Chase)","Credit (Amex)","Wire / Check","Escrow"];
+const PURCHASE_SUBCATS=["Down Payment","Earnest Money","Closing Costs","Inspection & Appraisal","Moving"];
+function getHouseSubcatMap(){const m={};houseSubcatCache.forEach(function(r){m[r.txn_id]=r.subcategory;});return m;}
+function isHouseCat(cat){return HOUSE_CATS.indexOf(cat)>=0;}
+function getHouseTxns(){
+  const sm=getHouseSubcatMap();
+  return txnCache.filter(function(t){
+    if(sm[t.id]) return true;
+    if(!isHouseCat(t.category)) return false;
+    if(HOUSE_START&&t.date<HOUSE_START) return false;
+    return true;
+  });
+}
+function houseLabel(t,sm){return sm[t.id]||t.category||"Untagged";}
+function comboVal(id){const el=document.getElementById(id);const inp=el?el.querySelector(".ic-input"):null;return inp?inp.value.trim():"";}
+function fillSelect(id,allLabel,vals){
+  const el=document.getElementById(id);if(!el)return;
+  const cur=el.value;
+  el.innerHTML='<option value="all">'+allLabel+'</option>';
+  vals.forEach(function(v){el.innerHTML+='<option value="'+v+'">'+v+'</option>';});
+  if(cur&&(cur==="all"||vals.map(String).indexOf(cur)>=0)) el.value=cur;
+}
+async function tagHouseSubcat(txnId,subcategory){
+  const sub=(subcategory||"").trim();
+  const existing=houseSubcatCache.find(function(r){return r.txn_id===txnId;});
+  if(!sub){
+    if(existing){await sb.from("house_subcat_tags").delete().eq("txn_id",txnId);houseSubcatCache=houseSubcatCache.filter(function(r){return r.txn_id!==txnId;});}
+  } else if(existing){
+    await sb.from("house_subcat_tags").update({subcategory:sub}).eq("txn_id",txnId);existing.subcategory=sub;
+  } else {
+    const nr={id:"hs_"+Date.now()+"_"+Math.random().toString(36).slice(2,6),txn_id:txnId,subcategory:sub};
+    const res=await sb.from("house_subcat_tags").insert([nr]);
+    if(res.error){showToast("Error: "+res.error.message,true);return;}
+    houseSubcatCache.push(nr);
+  }
+}
+async function setHouseStart(v){HOUSE_START=v||"";await saveSetting("house_start",HOUSE_START);renderHouse();showToast("Ownership start saved");}
+async function toggleHouseCat(cat,on){
+  if(on&&!isHouseCat(cat)) HOUSE_CATS.push(cat);
+  if(!on) HOUSE_CATS=HOUSE_CATS.filter(function(c){return c!==cat;});
+  await saveSetting("house_cats",HOUSE_CATS);renderHouse();
+}
+async function addHouseSubcat(){
+  const inp=document.getElementById("new-house-subcat-input"),val=inp.value.trim();if(!val)return;
+  if(HOUSE_SUBCATS.includes(val)){showToast("Already exists",true);return;}
+  HOUSE_SUBCATS.push(val);inp.value="";
+  await saveSetting("house_subcats",HOUSE_SUBCATS);renderHouse();showToast("Subcategory added");
+}
+async function removeHouseSubcat(i){
+  const name=HOUSE_SUBCATS[i];
+  if(!confirm('Remove "'+name+'"? Transactions tagged with it will be untagged.'))return;
+  await sb.from("house_subcat_tags").delete().eq("subcategory",name);
+  houseSubcatCache=houseSubcatCache.filter(function(r){return r.subcategory!==name;});
+  HOUSE_SUBCATS.splice(i,1);await saveSetting("house_subcats",HOUSE_SUBCATS);renderHouse();showToast("Removed");
+}
+async function editHouseSubcat(i){
+  const old=HOUSE_SUBCATS[i];const newName=prompt("Rename subcategory:",old);
+  if(!newName||newName===old)return;
+  if(HOUSE_SUBCATS.includes(newName)){showToast("Name already exists",true);return;}
+  HOUSE_SUBCATS[i]=newName;
+  const toUpdate=houseSubcatCache.filter(function(r){return r.subcategory===old;});
+  if(toUpdate.length){await sb.from("house_subcat_tags").update({subcategory:newName}).eq("subcategory",old);toUpdate.forEach(function(r){r.subcategory=newName;});}
+  await saveSetting("house_subcats",HOUSE_SUBCATS);renderHouse();showToast("Renamed");
+}
+async function addHouseTransaction(){
+  const date=document.getElementById("hs-add-date").value;
+  const store=document.getElementById("hs-add-store").value.trim();
+  const amount=parseFloat(document.getElementById("hs-add-amount").value)||0;
+  const note=document.getElementById("hs-add-note").value.trim();
+  const category=comboVal("hs-add-cat-combo")||"House Expense";
+  const subcat=comboVal("hs-add-subcat-combo");
+  const who=comboVal("hs-add-who-combo")||"Both";
+  const card=comboVal("hs-add-card-combo")||"Debit (SoFi)";
+  if(!date||!store||!amount){showToast("Date, payee and amount required",true);return;}
+  if(!CATEGORIES.includes(category)){showToast("Pick an existing category",true);return;}
+  const txnId="house_"+Date.now();
+  const txn={id:txnId,date,store,note,category,amount,who,charge_type:card,week_start:getWeekStart(date),week:getWeekLabel(date),month:getMonthLabel(date),year:getYear(date)};
+  const {error}=await sb.from("transactions").insert([txn]);
+  if(error){showToast("Error: "+error.message,true);return;}
+  txnCache.unshift(txn);
+  if(subcat) await tagHouseSubcat(txnId,subcat);
+  ["hs-add-store","hs-add-note","hs-add-amount"].forEach(function(id){const el=document.getElementById(id);if(el)el.value="";});
+  showToast("House expense saved");renderHouse();
+}
+function renderHouse(){
+  attachCombo("hs-add-cat-combo",HOUSE_CATS,"House Expense",null,"Category...");
+  attachCombo("hs-add-subcat-combo",[""].concat(HOUSE_SUBCATS),"",null,"Subcategory...");
+  attachCombo("hs-add-who-combo",["Both","Crystal","Aaron"],"Both",null,"Who...");
+  attachCombo("hs-add-card-combo",HOUSE_CARDS,"Debit (SoFi)",null,"Paid with...");
+  const d=document.getElementById("hs-add-date");if(d&&!d.value)d.value=new Date().toISOString().slice(0,10);
+  const st=document.getElementById("hs-start-date");if(st)st.value=HOUSE_START||"";
+  const cl=document.getElementById("house-cat-list");
+  if(cl){
+    cl.innerHTML="";
+    CATEGORIES.forEach(function(c){
+      const lab=document.createElement("label");lab.className="custom-check";
+      lab.style.cssText="gap:8px;padding:5px 0;cursor:pointer;text-transform:none;letter-spacing:0;font-size:12px;color:var(--text);";
+      const cb=document.createElement("input");cb.type="checkbox";cb.checked=isHouseCat(c);
+      cb.addEventListener("change",function(){toggleHouseCat(c,this.checked);});
+      const mark=document.createElement("span");mark.className="checkmark";
+      const txt=document.createElement("span");txt.textContent=c;
+      lab.appendChild(cb);lab.appendChild(mark);lab.appendChild(txt);cl.appendChild(lab);
+    });
+  }
+  const sl=document.getElementById("house-subcat-list");
+  if(sl) sl.innerHTML=HOUSE_SUBCATS.map(function(s,i){
+    return '<div class="cat-item"><span>'+s+(PURCHASE_SUBCATS.indexOf(s)>=0?' <span style="font-size:9px;color:var(--text3);">purchase</span>':'')+'</span>'+
+      '<button class="btn-secondary btn-sm" onclick="editHouseSubcat('+i+')" style="padding:3px 8px;font-size:10px;">&#9998;</button>'+
+      '<button class="btn-danger btn-sm" onclick="removeHouseSubcat('+i+')">Remove</button></div>';
+  }).join("")||'<div class="empty">No subcategories yet</div>';
+  const yrs=[...new Set(getHouseTxns().map(function(t){return t.year;}))].filter(Boolean).sort(function(a,b){return b-a;});
+  fillSelect("hs-year","All Years",yrs);
+  fillSelect("hs-subcat","All Subcategories",HOUSE_SUBCATS);
+  fillSelect("hs-cat","All Categories",HOUSE_CATS);
+  renderHouseSummary();renderHouseTransactions();
+}
+function renderHouseSummary(){
+  const txns=getHouseTxns(),sm=getHouseSubcatMap();
+  const sum=function(arr){return arr.reduce(function(s,t){return s+parseFloat(t.amount);},0);};
+  const total=sum(txns);
+  const purchase=sum(txns.filter(function(t){return PURCHASE_SUBCATS.indexOf(sm[t.id])>=0;}));
+  const ongoing=total-purchase;
+  const ty=thisYear();
+  const tyTot=sum(txns.filter(function(t){return t.year===ty;}));
+  const startStr=HOUSE_START||(txns.length?txns.map(function(t){return t.date;}).sort()[0]:"");
+  let months=0;
+  if(startStr){const s=new Date(startStr+"T12:00:00"),n=new Date();months=Math.max(1,(n.getFullYear()-s.getFullYear())*12+(n.getMonth()-s.getMonth())+1);}
+  const perMonth=months?ongoing/months:0;
+  document.getElementById("house-stats").innerHTML=
+    '<div class="stat-tile"><div class="stat-label">Lifetime Total</div><div class="stat-value">'+fmtMoney(total)+'</div><div class="stat-sub">'+txns.length+' txns'+(HOUSE_START?' &middot; since '+fmtDate(HOUSE_START):'')+'</div></div>'+
+    '<div class="stat-tile"><div class="stat-label">Purchase Costs</div><div class="stat-value v2">'+fmtMoney(purchase)+'</div><div class="stat-sub">down payment, closing, etc.</div></div>'+
+    '<div class="stat-tile"><div class="stat-label">Ongoing Costs</div><div class="stat-value v3">'+fmtMoney(ongoing)+'</div><div class="stat-sub">'+(months?fmtMoney(perMonth)+'/mo over '+months+' mo':'no data yet')+'</div></div>'+
+    '<div class="stat-tile dim"><div class="stat-label">This Year</div><div class="stat-value" style="color:var(--text2);font-size:18px;">'+fmtMoney(tyTot)+'</div><div class="stat-sub">'+ty+'</div></div>';
+  const groups={};
+  txns.forEach(function(t){const k=houseLabel(t,sm);groups[k]=(groups[k]||0)+parseFloat(t.amount);});
+  const sorted=Object.entries(groups).sort(function(a,b){return b[1]-a[1];});
+  const maxV=sorted[0]?sorted[0][1]:1;
+  document.getElementById("house-subcat-bars").innerHTML=sorted.length?sorted.map(function(e,i){
+    const tagged=HOUSE_SUBCATS.indexOf(e[0])>=0;
+    return '<div class="bar-row" style="margin-bottom:7px;"><div class="bar-label" title="'+e[0]+'">'+e[0]+(tagged?'':' <span style="font-size:9px;color:var(--text3);">(untagged)</span>')+'</div>'+
+      '<div class="bar-track"><div class="bar-fill" style="width:'+(e[1]/maxV*100).toFixed(1)+'%;background:'+SPEND_COLORS[i%SPEND_COLORS.length]+';"></div></div>'+
+      '<div class="bar-amount">'+fmtMoney(e[1])+'</div>'+
+      '<div style="width:36px;text-align:right;font-size:10px;color:var(--text3);flex-shrink:0;">'+(total?(e[1]/total*100).toFixed(0):0)+'%</div></div>';
+  }).join(""):'<div class="empty">No house transactions yet &mdash; set your closing date in Setup, then add expenses</div>';
+  const years={};
+  txns.forEach(function(t){years[t.year]=(years[t.year]||0)+parseFloat(t.amount);});
+  const ys=Object.entries(years).sort(function(a,b){return b[0]-a[0];});
+  const maxY=Math.max.apply(null,[1].concat(ys.map(function(e){return e[1];})));
+  document.getElementById("house-year-bars").innerHTML=ys.length?ys.map(function(e){
+    return '<div class="bar-row" style="margin-bottom:7px;"><div class="bar-label" style="width:80px;">'+e[0]+'</div>'+
+      '<div class="bar-track"><div class="bar-fill" style="width:'+(e[1]/maxY*100).toFixed(1)+'%;background:var(--accent);opacity:0.75;"></div></div>'+
+      '<div class="bar-amount" style="width:90px;">'+fmtMoney(e[1])+'</div></div>';
+  }).join(""):'<div class="empty">No data yet</div>';
+}
+function renderHouseTransactions(){
+  const sm=getHouseSubcatMap();
+  const yr=(document.getElementById("hs-year")||{}).value||"all";
+  const sub=(document.getElementById("hs-subcat")||{}).value||"all";
+  const cat=(document.getElementById("hs-cat")||{}).value||"all";
+  const search=((document.getElementById("hs-search")||{}).value||"").toLowerCase();
+  const txns=getHouseTxns().filter(function(t){
+    if(yr!=="all"&&String(t.year)!==String(yr)) return false;
+    if(sub!=="all"&&sm[t.id]!==sub) return false;
+    if(cat!=="all"&&t.category!==cat) return false;
+    if(search&&!(t.store||"").toLowerCase().includes(search)&&!(t.note||"").toLowerCase().includes(search)) return false;
+    return true;
+  }).sort(function(a,b){return b.date.localeCompare(a.date);});
+  const tot=txns.reduce(function(s,t){return s+parseFloat(t.amount);},0);
+  document.getElementById("house-filter-total").innerHTML=txns.length?'<span style="font-family:var(--font-display);font-size:20px;color:var(--spend1);">'+fmtMoney(tot)+'</span> <span style="font-size:11px;color:var(--text3);">'+txns.length+' transaction'+(txns.length!==1?'s':'')+'</span>':'';
+  const container=document.getElementById("house-transactions");
+  if(!txns.length){container.innerHTML='<div class="empty">No house transactions match your filters</div>';return;}
+  const table=document.createElement("table");table.style.minWidth="720px";
+  table.innerHTML='<thead><tr><th>Date</th><th>Payee</th><th>Note</th><th>Category</th><th>Amount</th><th>Who</th><th>House Subcategory</th></tr></thead>';
+  const tbody=document.createElement("tbody");
+  txns.forEach(function(t){
+    const tr=document.createElement("tr");
+    tr.innerHTML='<td style="white-space:nowrap;color:var(--text2)">'+fmtDate(t.date)+'</td>'+
+      '<td>'+(t.store||"")+'</td><td style="color:var(--text3)">'+(t.note||"")+'</td>'+
+      '<td style="font-size:11px;color:var(--text2);">'+(t.category||"")+'</td>'+
+      '<td class="amount-cell">'+fmtMoney(t.amount)+'</td>'+
+      '<td><span class="tag '+(t.who||"").toLowerCase()+'">'+(t.who||"")+'</span></td>';
+    const td=document.createElement("td");td.style.minWidth="160px";
+    td.appendChild(makeCombo([""].concat(HOUSE_SUBCATS),sm[t.id]||"",async function(v){await tagHouseSubcat(t.id,v);renderHouseSummary();},"Subcategory...","160px"));
+    tr.appendChild(td);tbody.appendChild(tr);
+  });
+  table.appendChild(tbody);container.innerHTML="";container.appendChild(table);
+}
 
 // ── TOAST + INIT ──────────────────────────────────────────────────────────────
 function showToast(msg,isError){
