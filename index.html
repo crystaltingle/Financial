@@ -544,9 +544,11 @@ async function saveSetting(key,value){
 const ACCOUNTS=[
   {key:"aaron401k",label:"Aaron 401k",owner:"Aaron",defaultAmt:0,color:"#8b7aa0"},
   {key:"aaronIRA",label:"Aaron Roth IRA",owner:"Aaron",defaultAmt:200,color:"#7a6890"},
+  {key:"aaronTradIRA",label:"Aaron Traditional IRA",owner:"Aaron",defaultAmt:0,color:"#9c8cb4"},
   {key:"aaronBrok",label:"Aaron Brokerage",owner:"Aaron",defaultAmt:150,color:"#6a5880"},
   {key:"crystal401k",label:"Crystal 401k",owner:"Crystal",defaultAmt:0,color:"#7a9e7e"},
   {key:"crystalIRA",label:"Crystal Roth IRA",owner:"Crystal",defaultAmt:375,color:"#6a8e6e"},
+  {key:"crystalTradIRA",label:"Crystal Traditional IRA",owner:"Crystal",defaultAmt:0,color:"#90b494"},
   {key:"hsa",label:"Crystal HSA",owner:"Crystal",defaultAmt:364.58,color:"#5a7e5e"},
   {key:"crystalBrok",label:"Crystal Brokerage",owner:"Crystal",defaultAmt:0,color:"#8aaa8a"},
   {key:"emergency",label:"Emergency Fund",owner:"Both",defaultAmt:0,color:"#c4a882"}
@@ -901,6 +903,7 @@ async function removeCategory(i){
   await saveSetting("categories",CATEGORIES);
   refreshAllDropdowns();renderSettings();showToast("Removed");
 }
+function ownerSum(totals,owner){return ACCOUNTS.filter(function(a){return a.owner===owner;}).reduce(function(s,a){return s+(totals[a.key]||0);},0);}
 function getGoalsForYear(year){return GOALS[year]||DEFAULT_GOALS[year]||DEFAULT_GOALS[2026];}
 async function saveGoals(){
   const year=parseInt((document.getElementById("goals-year")||{}).value||"2026");
@@ -1127,8 +1130,8 @@ function renderDashContrib(){
     },0);
   });
   const goalTotal=Object.values(goals).reduce(function(s,v){return s+(v||0);},0);
-  const crystalAccs=["crystal401k","crystalIRA","hsa","crystalBrok"];
-  const aaronAccs=["aaron401k","aaronIRA","aaronBrok"];
+  const crystalAccs=ACCOUNTS.filter(function(a){return a.owner==="Crystal";}).map(function(a){return a.key;});
+  const aaronAccs=ACCOUNTS.filter(function(a){return a.owner==="Aaron";}).map(function(a){return a.key;});
   let crystalYr=0,aaronYr=0;
   ACCOUNTS.forEach(function(acc){
     const t=weeks2026.reduce(function(s,w){
@@ -2095,8 +2098,8 @@ function renderContributions(){
       return s+(c&&(c.checked===true||c.checked==="true")?parseFloat(c.amount||0):0);
     },0);
   });
-  const crystalTotal=(totals.crystal401k||0)+(totals.crystalIRA||0)+(totals.hsa||0)+(totals.crystalBrok||0);
-  const aaronTotal=(totals.aaron401k||0)+(totals.aaronIRA||0)+(totals.aaronBrok||0);
+  const crystalTotal=ownerSum(totals,"Crystal");
+  const aaronTotal=ownerSum(totals,"Aaron");
   const grandTotal=crystalTotal+aaronTotal+(totals.emergency||0);
   const crystalGoal=ACCOUNTS.filter(function(a){return a.owner==="Crystal";}).reduce(function(s,a){return s+(goals[a.key]||0);},0);
   const aaronGoal=ACCOUNTS.filter(function(a){return a.owner==="Aaron";}).reduce(function(s,a){return s+(goals[a.key]||0);},0);
@@ -2212,8 +2215,8 @@ function refreshGrandTotals(){
   ACCOUNTS.forEach(function(acc){
     totals[acc.key]=contribCache.filter(function(c){return c.account_key===acc.key&&(c.checked===true||c.checked==="true");}).reduce(function(s,c){return s+parseFloat(c.amount||0);},0);
   });
-  const cT=(totals.crystal401k||0)+(totals.crystalIRA||0)+(totals.hsa||0)+(totals.crystalBrok||0);
-  const aT=(totals.aaron401k||0)+(totals.aaronIRA||0)+(totals.aaronBrok||0);
+  const cT=ownerSum(totals,"Crystal");
+  const aT=ownerSum(totals,"Aaron");
   const gT=cT+aT+(totals.emergency||0);
   const cG=ACCOUNTS.filter(function(a){return a.owner==="Crystal";}).reduce(function(s,a){return s+(goals[a.key]||0);},0);
   const aG=ACCOUNTS.filter(function(a){return a.owner==="Aaron";}).reduce(function(s,a){return s+(goals[a.key]||0);},0);
