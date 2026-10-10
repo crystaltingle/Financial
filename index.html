@@ -324,7 +324,7 @@ tr:hover td{background:rgba(255,255,255,0.015);}
 
 <!-- CONTRIBUTIONS -->
 <div id="view-contributions" class="view">
-  <div class="page-header"><div class="header-actions"><div><h1>Savings &amp; Retirement</h1><p>Contribution tracking</p></div><select id="contrib-year" onchange="renderContributions()" style="width:auto;padding:7px 12px;font-size:13px;"><option value="2027">2027</option><option value="2026" selected>2026</option><option value="2025">2025</option></select></div></div>
+  <div class="page-header"><div class="header-actions"><div><h1>Savings &amp; Retirement</h1><p>Contribution tracking</p></div><select id="contrib-year" onchange="renderContributions()" style="width:auto;padding:7px 12px;font-size:13px;"><option value="2027">2027</option><option value="2026" selected>2026</option><option value="2025">2025</option><option value="2024">2024</option><option value="2023">2023</option><option value="2022">2022</option><option value="2021">2021</option><option value="2020">2020</option></select></div></div>
   <div id="contrib-grand-totals" class="section"></div>
   <div class="contrib-section-title">Progress <span>goal vs contributed</span></div>
   <div class="three-col section" id="contrib-progress-cards"></div>
@@ -460,7 +460,7 @@ tr:hover td{background:rgba(255,255,255,0.015);}
   <div class="page-header"><h1>Settings</h1><p>Synced across both devices</p></div>
   <div class="two-col section">
     <div class="card"><div class="card-title">Spending Categories</div><div style="display:flex;gap:8px;margin-bottom:14px;"><input type="text" id="new-cat-input" placeholder="e.g. Gaming" style="flex:1;"><button class="btn btn-primary btn-sm" onclick="addCategory()">+ Add</button></div><div id="cat-list"></div></div>
-    <div class="card"><div class="card-title">Contribution Goals</div><div style="display:flex;gap:8px;margin-bottom:14px;align-items:center;"><label style="font-size:11px;color:var(--text2);white-space:nowrap;">Year</label><select id="goals-year" onchange="renderGoalsSettings()" style="width:auto;padding:6px 10px;font-size:13px;"><option value="2027">2027</option><option value="2026">2026</option><option value="2025">2025</option></select></div><div id="goals-list"></div><button class="btn btn-primary" style="margin-top:14px;width:100%;" onclick="saveGoals()">Save Goals</button></div>
+    <div class="card"><div class="card-title">Contribution Goals</div><div style="display:flex;gap:8px;margin-bottom:14px;align-items:center;"><label style="font-size:11px;color:var(--text2);white-space:nowrap;">Year</label><select id="goals-year" onchange="renderGoalsSettings()" style="width:auto;padding:6px 10px;font-size:13px;"><option value="2027">2027</option><option value="2026">2026</option><option value="2025">2025</option><option value="2024">2024</option><option value="2023">2023</option><option value="2022">2022</option><option value="2021">2021</option><option value="2020">2020</option></select></div><div id="goals-list"></div><button class="btn btn-primary" style="margin-top:14px;width:100%;" onclick="saveGoals()">Save Goals</button></div>
   </div>
 </div>
 </main>
@@ -481,6 +481,11 @@ const DEFAULT_HOBBIES=["Backpacking","Hiking","Paragliding","Climbing","Biking",
 const DEFAULT_TRIPS=[];
 const DEFAULT_TRAVEL_SUBCATS=["Flights","Hotel","Car Rental","Gas","Transportation","Dining","Entertainment","Activities","Shopping","Misc"];
 const DEFAULT_GOALS={
+  2020:{aaron401k:19500,aaronIRA:6000,aaronBrok:0,crystal401k:19500,crystalIRA:6000,hsa:0,crystalBrok:0,emergency:0},
+  2021:{aaron401k:19500,aaronIRA:6000,aaronBrok:0,crystal401k:19500,crystalIRA:6000,hsa:0,crystalBrok:0,emergency:0},
+  2022:{aaron401k:20500,aaronIRA:6000,aaronBrok:0,crystal401k:20500,crystalIRA:6000,hsa:0,crystalBrok:0,emergency:0},
+  2023:{aaron401k:22500,aaronIRA:6500,aaronBrok:0,crystal401k:22500,crystalIRA:6500,hsa:0,crystalBrok:0,emergency:0},
+  2024:{aaron401k:23000,aaronIRA:7000,aaronBrok:0,crystal401k:23000,crystalIRA:7000,hsa:0,crystalBrok:0,emergency:0},
   2025:{aaron401k:23000,aaronIRA:7000,aaronBrok:15000,crystal401k:23000,crystalIRA:7000,hsa:8000,crystalBrok:8000,emergency:30000},
   2026:{aaron401k:24500,aaronIRA:7500,aaronBrok:15000,crystal401k:24500,crystalIRA:7500,hsa:8000,crystalBrok:8000,emergency:30000},
   2027:{aaron401k:24500,aaronIRA:7500,aaronBrok:15000,crystal401k:24500,crystalIRA:7500,hsa:8000,crystalBrok:8000,emergency:30000}
@@ -1103,7 +1108,7 @@ function buildSimpleTxnTable(txns){
 }
 
 function renderDashContrib(){
-  const allWeeks=[...generateWeeksForYear(2025),...generateWeeksForYear(2026)];
+  let allWeeks=[];for(let y=2020;y<=thisYear()+1;y++){allWeeks=allWeeks.concat(generateWeeksForYear(y));}
   const weeks2026=generateWeeksForYear(2026);
   const cm=buildContribMap();
   const goals=getGoalsForYear(2026);
