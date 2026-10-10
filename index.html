@@ -324,8 +324,10 @@ tr:hover td{background:rgba(255,255,255,0.015);}
 
 <!-- CONTRIBUTIONS -->
 <div id="view-contributions" class="view">
-  <div class="page-header"><div class="header-actions"><div><h1>Savings &amp; Retirement</h1><p>Contribution tracking</p></div><select id="contrib-year" onchange="renderContributions()" style="width:auto;padding:7px 12px;font-size:13px;"><option value="2027">2027</option><option value="2026" selected>2026</option><option value="2025">2025</option><option value="2024">2024</option><option value="2023">2023</option><option value="2022">2022</option><option value="2021">2021</option><option value="2020">2020</option></select></div></div>
+  <div class="page-header"><div class="header-actions"><div><h1>Savings &amp; Retirement</h1><p>Contribution tracking</p></div><select id="contrib-year" onchange="renderContributions()" style="width:auto;padding:7px 12px;font-size:13px;"></select></div></div>
   <div id="contrib-grand-totals" class="section"></div>
+  <div class="contrib-section-title">All Time <span>every year logged</span></div>
+  <div class="stat-row section" id="contrib-alltime"></div>
   <div class="contrib-section-title">Progress <span>goal vs contributed</span></div>
   <div class="three-col section" id="contrib-progress-cards"></div>
   <div class="contrib-section-title">Weekly Entry <span>tap account to expand</span></div>
@@ -460,7 +462,7 @@ tr:hover td{background:rgba(255,255,255,0.015);}
   <div class="page-header"><h1>Settings</h1><p>Synced across both devices</p></div>
   <div class="two-col section">
     <div class="card"><div class="card-title">Spending Categories</div><div style="display:flex;gap:8px;margin-bottom:14px;"><input type="text" id="new-cat-input" placeholder="e.g. Gaming" style="flex:1;"><button class="btn btn-primary btn-sm" onclick="addCategory()">+ Add</button></div><div id="cat-list"></div></div>
-    <div class="card"><div class="card-title">Contribution Goals</div><div style="display:flex;gap:8px;margin-bottom:14px;align-items:center;"><label style="font-size:11px;color:var(--text2);white-space:nowrap;">Year</label><select id="goals-year" onchange="renderGoalsSettings()" style="width:auto;padding:6px 10px;font-size:13px;"><option value="2027">2027</option><option value="2026">2026</option><option value="2025">2025</option><option value="2024">2024</option><option value="2023">2023</option><option value="2022">2022</option><option value="2021">2021</option><option value="2020">2020</option></select></div><div id="goals-list"></div><button class="btn btn-primary" style="margin-top:14px;width:100%;" onclick="saveGoals()">Save Goals</button></div>
+    <div class="card"><div class="card-title">Contribution Goals</div><div style="display:flex;gap:8px;margin-bottom:14px;align-items:center;"><label style="font-size:11px;color:var(--text2);white-space:nowrap;">Year</label><select id="goals-year" onchange="renderGoalsSettings()" style="width:auto;padding:6px 10px;font-size:13px;"></select></div><div id="goals-list"></div><button class="btn btn-primary" style="margin-top:14px;width:100%;" onclick="saveGoals()">Save Goals</button><p style="font-size:10px;color:var(--text3);margin-top:8px;line-height:1.5;">An account with a $0 goal and nothing logged that year is hidden on the Contributions tab. Its summary card appears once money is logged.</p><div class="card-title" style="margin-top:22px;">Contribution Accounts</div><div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap;"><input type="text" id="new-acc-label" placeholder="e.g. Crystal 529" style="flex:1;min-width:130px;"><select id="new-acc-owner" style="width:auto;padding:7px 10px;font-size:12px;"><option>Crystal</option><option>Aaron</option><option>Both</option></select><button class="btn btn-primary btn-sm" onclick="addContribAccount()">+ Add</button></div><div id="acc-list"></div></div>
   </div>
 </div>
 </main>
@@ -522,6 +524,8 @@ async function loadSettings(){
     if(trp&&Array.isArray(trp.value)) TRIPS=trp.value;
     if(sub&&Array.isArray(sub.value)) TRAVEL_SUBCATS=sub.value;
     if(gls&&gls.value) GOALS=gls.value;
+    const accs=get("contrib_accounts");
+    if(accs&&Array.isArray(accs.value)&&accs.value.length) ACCOUNTS=accs.value;
     const hc=get("house_cats"),hs=get("house_subcats"),hd=get("house_start");
     if(hc&&Array.isArray(hc.value)) HOUSE_CATS=hc.value;
     if(hs&&Array.isArray(hs.value)) HOUSE_SUBCATS=hs.value;
@@ -541,7 +545,7 @@ async function saveSetting(key,value){
 }
 
 // ── ACCOUNTS ──────────────────────────────────────────────────────────────────
-const ACCOUNTS=[
+let ACCOUNTS=[
   {key:"aaron401k",label:"Aaron 401k",owner:"Aaron",defaultAmt:0,color:"#8b7aa0"},
   {key:"aaronIRA",label:"Aaron Roth IRA",owner:"Aaron",defaultAmt:200,color:"#7a6890"},
   {key:"aaronTradIRA",label:"Aaron Traditional IRA",owner:"Aaron",defaultAmt:0,color:"#9c8cb4"},
@@ -904,7 +908,7 @@ async function removeCategory(i){
   refreshAllDropdowns();renderSettings();showToast("Removed");
 }
 function ownerSum(totals,owner){return ACCOUNTS.filter(function(a){return a.owner===owner;}).reduce(function(s,a){return s+(totals[a.key]||0);},0);}
-function getGoalsForYear(year){return GOALS[year]||DEFAULT_GOALS[year]||DEFAULT_GOALS[2026];}
+function getGoalsForYear(year){return GOALS[year]||DEFAULT_GOALS[year]||{};}
 async function saveGoals(){
   const year=parseInt((document.getElementById("goals-year")||{}).value||"2026");
   const goals={};
@@ -919,7 +923,7 @@ async function saveGoals(){
   if(av&&av.id==="view-contributions") renderContributions();
 }
 function renderGoalsSettings(){
-  const year=parseInt((document.getElementById("goals-year")||{}).value||"2026");
+  const year=parseInt((document.getElementById("goals-year")||{}).value||String(thisYear()));
   const goals=getGoalsForYear(year);
   const el=document.getElementById("goals-list");
   if(!el) return;
@@ -935,9 +939,70 @@ function renderSettings(){
   const el=document.getElementById("cat-list");
   if(!el) return;
   el.innerHTML=CATEGORIES.map(function(c,i){
-    return '<div class="cat-item"><span>'+c+'</span><button class="btn-danger btn-sm" onclick="removeCategory('+i+')">Remove</button></div>';
+    return '<div class="cat-item"><span>'+c+'</span><button class="btn-secondary btn-sm" onclick="renameCategory('+i+')" style="padding:3px 8px;font-size:10px;">&#9998;</button><button class="btn-danger btn-sm" onclick="removeCategory('+i+')">Remove</button></div>';
   }).join("")||'<div class="empty">No categories</div>';
+  fillYearSelect("goals-year");
   renderGoalsSettings();
+  renderAccountSettings();
+}
+async function renameCategory(i){
+  const old=CATEGORIES[i];
+  const nn=(prompt("Rename category (updates every transaction using it):",old)||"").trim();
+  if(!nn||nn===old)return;
+  if(CATEGORIES.includes(nn)){showToast("Name already exists",true);return;}
+  const {error}=await sb.from("transactions").update({category:nn}).eq("category",old);
+  if(error){showToast("Error: "+error.message,true);return;}
+  txnCache.forEach(function(t){if(t.category===old)t.category=nn;});
+  BILLS.forEach(function(b){if(b.cat===old)b.cat=nn;});
+  if(BILLS.length) await saveBills();
+  HOUSE_CATS=HOUSE_CATS.map(function(h){return h===old?nn:h;});
+  await saveSetting("house_cats",HOUSE_CATS);
+  CATEGORIES[i]=nn;
+  CATEGORIES.sort(function(a,b){return a.replace(/[^a-z]/gi,"").localeCompare(b.replace(/[^a-z]/gi,""));});
+  await saveSetting("categories",CATEGORIES);
+  refreshAllDropdowns();renderSettings();showToast("Category renamed");
+}
+function yearList(){
+  let max=thisYear()+1;
+  Object.keys(GOALS||{}).forEach(function(y){y=parseInt(y);if(y>max)max=y;});
+  contribCache.forEach(function(c){const y=parseInt(String(c.week_date||"").slice(0,4));if(y>max)max=y;});
+  const out=[];for(let y=max;y>=2020;y--)out.push(y);return out;
+}
+function fillYearSelect(id){
+  const el=document.getElementById(id);if(!el)return;
+  const cur=el.value||String(thisYear());
+  el.innerHTML=yearList().map(function(y){return '<option value="'+y+'">'+y+'</option>';}).join("");
+  el.value=cur;if(!el.value)el.value=String(thisYear());
+}
+function accColor(owner){return owner==="Aaron"?"#8b7aa0":owner==="Crystal"?"#7a9e7e":"#c4a882";}
+async function saveAccounts(){await saveSetting("contrib_accounts",ACCOUNTS);}
+async function addContribAccount(){
+  const label=document.getElementById("new-acc-label").value.trim();
+  const owner=document.getElementById("new-acc-owner").value;
+  if(!label)return;
+  if(ACCOUNTS.find(function(a){return a.label.toLowerCase()===label.toLowerCase();})){showToast("Already exists",true);return;}
+  ACCOUNTS.push({key:"acc_"+Date.now(),label:label,owner:owner,defaultAmt:0,color:accColor(owner)});
+  document.getElementById("new-acc-label").value="";
+  await saveAccounts();renderSettings();showToast("Account added — set its goal above");
+}
+async function renameContribAccount(key){
+  const a=ACCOUNTS.find(function(x){return x.key===key;});if(!a)return;
+  const nn=(prompt("Rename account:",a.label)||"").trim();if(!nn||nn===a.label)return;
+  a.label=nn;await saveAccounts();renderSettings();showToast("Renamed");
+}
+async function removeContribAccount(key){
+  const a=ACCOUNTS.find(function(x){return x.key===key;});if(!a)return;
+  if(!confirm('Remove "'+a.label+'" from the tracker? Logged contributions stay in the database but stop counting.'))return;
+  ACCOUNTS=ACCOUNTS.filter(function(x){return x.key!==key;});
+  await saveAccounts();renderSettings();showToast("Removed");
+}
+function renderAccountSettings(){
+  const el=document.getElementById("acc-list");if(!el)return;
+  el.innerHTML=ACCOUNTS.map(function(a){
+    return '<div class="cat-item"><span>'+a.label+' <span style="font-size:10px;color:var(--text3);">&middot; '+a.owner+'</span></span>'+
+      '<button class="btn-secondary btn-sm" onclick="renameContribAccount(\''+a.key+'\')" style="padding:3px 8px;font-size:10px;">&#9998;</button>'+
+      '<button class="btn-danger btn-sm" onclick="removeContribAccount(\''+a.key+'\')">Remove</button></div>';
+  }).join("");
 }
 
 // ── ADD TRANSACTION ────────────────────────────────────────────────────────────
@@ -2087,35 +2152,55 @@ function drawRing(canvas,pct,color,size){
   ctx.beginPath();ctx.arc(cx,cy,r,0,2*Math.PI);ctx.strokeStyle="rgba(255,255,255,0.06)";ctx.lineWidth=7;ctx.stroke();
   if(pct>0){const end=-Math.PI/2+(Math.min(pct,1)*2*Math.PI);ctx.beginPath();ctx.arc(cx,cy,r,-Math.PI/2,end);ctx.strokeStyle=color;ctx.lineWidth=7;ctx.lineCap="round";ctx.stroke();}
 }
-function getSelectedContribYear(){return parseInt((document.getElementById("contrib-year")||{}).value||"2026");}
-function renderContributions(){
-  const year=getSelectedContribYear();
-  const weeks=generateWeeksForYear(year),cm=buildContribMap(),goals=getGoalsForYear(year);
-  const totals={};
+function getSelectedContribYear(){return parseInt((document.getElementById("contrib-year")||{}).value||String(thisYear()));}
+function contribYearTotals(year){
+  const weeks=generateWeeksForYear(year),cm=buildContribMap(),totals={};
   ACCOUNTS.forEach(function(acc){
-    totals[acc.key]=weeks.reduce(function(s,w){
-      const c=cm[acc.key+"_"+w.dateStr];
-      return s+(c&&(c.checked===true||c.checked==="true")?parseFloat(c.amount||0):0);
-    },0);
+    totals[acc.key]=weeks.reduce(function(s,w){const c=cm[acc.key+"_"+w.dateStr];return s+(c&&(c.checked===true||c.checked==="true")?parseFloat(c.amount||0):0);},0);
   });
+  return totals;
+}
+function contribAllTimeTotals(){
+  const keys={};ACCOUNTS.forEach(function(a){keys[a.key]=0;});
+  contribCache.forEach(function(c){
+    if(!(c.account_key in keys))return;
+    if(c.checked===true||c.checked==="true")keys[c.account_key]+=parseFloat(c.amount||0);
+  });
+  return keys;
+}
+function accountVisible(acc,year,totals){
+  const goals=getGoalsForYear(year);
+  return (goals[acc.key]||0)>0||(totals[acc.key]||0)>0;
+}
+function renderContribSummary(){
+  const year=getSelectedContribYear();
+  const goals=getGoalsForYear(year);
+  const totals=contribYearTotals(year);
   const crystalTotal=ownerSum(totals,"Crystal");
   const aaronTotal=ownerSum(totals,"Aaron");
-  const grandTotal=crystalTotal+aaronTotal+(totals.emergency||0);
-  const crystalGoal=ACCOUNTS.filter(function(a){return a.owner==="Crystal";}).reduce(function(s,a){return s+(goals[a.key]||0);},0);
-  const aaronGoal=ACCOUNTS.filter(function(a){return a.owner==="Aaron";}).reduce(function(s,a){return s+(goals[a.key]||0);},0);
-  const grandGoal=crystalGoal+aaronGoal+(goals.emergency||0);
+  const grandTotal=crystalTotal+aaronTotal+ownerSum(totals,"Both");
+  const goalBy=function(o){return ACCOUNTS.filter(function(a){return a.owner===o;}).reduce(function(s,a){return s+(goals[a.key]||0);},0);};
+  const crystalGoal=goalBy("Crystal"),aaronGoal=goalBy("Aaron"),grandGoal=crystalGoal+aaronGoal+goalBy("Both");
   document.getElementById("contrib-grand-totals").innerHTML=
     '<div class="three-col">'+
     '<div class="total-card" style="border-color:rgba(122,158,126,0.25)"><div class="total-name">Crystal '+year+'</div><div class="total-ring-wrap"><canvas id="ring-crystal-total" width="60" height="60"></canvas><div><div class="total-amount" style="color:var(--crystal-light)">'+fmtMoney(crystalTotal)+'</div><div class="total-sub">of '+fmtMoney(crystalGoal)+' &middot; '+(crystalGoal>0?(crystalTotal/crystalGoal*100).toFixed(1):0)+'%</div></div></div></div>'+
     '<div class="total-card" style="border-color:rgba(139,122,160,0.25)"><div class="total-name">Aaron '+year+'</div><div class="total-ring-wrap"><canvas id="ring-aaron-total" width="60" height="60"></canvas><div><div class="total-amount" style="color:var(--aaron-light)">'+fmtMoney(aaronTotal)+'</div><div class="total-sub">of '+fmtMoney(aaronGoal)+' &middot; '+(aaronGoal>0?(aaronTotal/aaronGoal*100).toFixed(1):0)+'%</div></div></div></div>'+
     '<div class="total-card grand"><div class="total-name">Grand Total '+year+'</div><div class="total-ring-wrap"><canvas id="ring-grand-total" width="60" height="60"></canvas><div><div class="total-amount">'+fmtMoney(grandTotal)+'</div><div class="total-sub">of '+fmtMoney(grandGoal)+' &middot; '+(grandGoal>0?(grandTotal/grandGoal*100).toFixed(1):0)+'%</div></div></div></div>'+
     '</div>';
-  setTimeout(function(){
-    const rc=document.getElementById("ring-crystal-total");if(rc)drawRing(rc,crystalGoal>0?crystalTotal/crystalGoal:0,"#7a9e7e",60);
-    const ra=document.getElementById("ring-aaron-total");if(ra)drawRing(ra,aaronGoal>0?aaronTotal/aaronGoal:0,"#8b7aa0",60);
-    const rg=document.getElementById("ring-grand-total");if(rg)drawRing(rg,grandGoal>0?grandTotal/grandGoal:0,"#c4a882",60);
-  },0);
-  document.getElementById("contrib-progress-cards").innerHTML=ACCOUNTS.map(function(acc){
+  drawRing(document.getElementById("ring-crystal-total"),crystalGoal>0?crystalTotal/crystalGoal:0,"#7a9e7e",60);
+  drawRing(document.getElementById("ring-aaron-total"),aaronGoal>0?aaronTotal/aaronGoal:0,"#8b7aa0",60);
+  drawRing(document.getElementById("ring-grand-total"),grandGoal>0?grandTotal/grandGoal:0,"#c4a882",60);
+  // All time
+  const at=contribAllTimeTotals();
+  const atC=ownerSum(at,"Crystal"),atA=ownerSum(at,"Aaron"),atB=ownerSum(at,"Both");
+  document.getElementById("contrib-alltime").innerHTML=
+    '<div class="stat-tile" style="border-color:rgba(138,170,138,0.2)"><div class="stat-label">All Time Total</div><div class="stat-value" style="color:#8aaa8a">'+fmtMoney(atC+atA+atB)+'</div><div class="stat-sub">every account, every year</div></div>'+
+    '<div class="stat-tile" style="border-color:rgba(122,158,126,0.2)"><div class="stat-label">Crystal All Time</div><div class="stat-value" style="color:var(--crystal-light)">'+fmtMoney(atC)+'</div><div class="stat-sub">'+ACCOUNTS.filter(function(a){return a.owner==="Crystal"&&at[a.key]>0;}).length+' accounts used</div></div>'+
+    '<div class="stat-tile" style="border-color:rgba(139,122,160,0.2)"><div class="stat-label">Aaron All Time</div><div class="stat-value" style="color:var(--aaron-light)">'+fmtMoney(atA)+'</div><div class="stat-sub">'+ACCOUNTS.filter(function(a){return a.owner==="Aaron"&&at[a.key]>0;}).length+' accounts used</div></div>'+
+    '<div class="stat-tile dim"><div class="stat-label">Shared All Time</div><div class="stat-value" style="color:var(--accent);font-size:18px;">'+fmtMoney(atB)+'</div><div class="stat-sub">emergency fund, etc.</div></div>';
+  // Progress cards: only accounts with money logged this year
+  const shown=ACCOUNTS.filter(function(a){return (totals[a.key]||0)>0;});
+  document.getElementById("contrib-progress-cards").innerHTML=shown.length?shown.map(function(acc){
     const contributed=totals[acc.key]||0,goal=goals[acc.key]||0,pct=goal>0?contributed/goal:0,remaining=Math.max(goal-contributed,0);
     const oc=acc.owner==="Aaron"?"var(--aaron-light)":acc.owner==="Crystal"?"var(--crystal-light)":"var(--accent)";
     const bc=acc.owner==="Aaron"?"rgba(139,122,160,0.2)":acc.owner==="Crystal"?"rgba(122,158,126,0.2)":"var(--border)";
@@ -2125,9 +2210,18 @@ function renderContributions(){
       '<div class="account-nums"><div class="account-contributed" style="color:'+oc+'">'+fmtMoney(contributed)+'</div>'+
       '<div class="account-goal">of '+fmtMoney(goal)+'</div><div class="account-remaining">'+fmtMoney(remaining)+' left</div>'+
       '<div class="account-pct">'+(pct*100).toFixed(1)+'%</div></div></div></div>';
-  }).join("");
-  ACCOUNTS.forEach(function(acc){const cv=document.getElementById("ring-"+acc.key);if(cv)drawRing(cv,goals[acc.key]>0?totals[acc.key]/goals[acc.key]:0,acc.color,70);});
-  document.getElementById("contrib-entry-tables").innerHTML=ACCOUNTS.map(function(acc){
+  }).join(""):'<div class="empty" style="grid-column:1/-1">Nothing logged for '+year+' yet</div>';
+  shown.forEach(function(acc){const cv=document.getElementById("ring-"+acc.key);if(cv)drawRing(cv,goals[acc.key]>0?totals[acc.key]/goals[acc.key]:0,acc.color,70);});
+  // Accordion header totals (year-scoped)
+  ACCOUNTS.forEach(function(acc){const el=document.getElementById("total-"+acc.key);if(el)el.textContent=fmtMoney(totals[acc.key]||0);});
+}
+function renderContributions(){
+  fillYearSelect("contrib-year");
+  renderContribSummary();
+  const year=getSelectedContribYear();
+  const weeks=generateWeeksForYear(year),cm=buildContribMap(),goals=getGoalsForYear(year);
+  const totals=contribYearTotals(year);
+  document.getElementById("contrib-entry-tables").innerHTML=ACCOUNTS.filter(function(acc){return accountVisible(acc,year,totals);}).map(function(acc){
     const isOpen=openAccordions.has(acc.key);
     const oc=acc.owner==="Aaron"?"var(--aaron-light)":acc.owner==="Crystal"?"var(--crystal-light)":"var(--accent)";
     const bc=acc.owner==="Aaron"?"rgba(139,122,160,0.2)":acc.owner==="Crystal"?"rgba(122,158,126,0.2)":"var(--border)";
@@ -2201,30 +2295,8 @@ function propagateAmount(accountKey,afterDateStr,newAmount){
     const inp=row.querySelector(".contrib-input");if(inp)inp.placeholder=newAmount.toFixed(2);
   });
 }
-function refreshAccountTotal(key){
-  const total=contribCache.filter(function(c){return c.account_key===key&&(c.checked===true||c.checked==="true");}).reduce(function(s,c){return s+parseFloat(c.amount||0);},0);
-  const el=document.getElementById("total-"+key);if(el)el.textContent=fmtMoney(total);
-  const acc=ACCOUNTS.find(function(a){return a.key===key;});
-  const cv=document.getElementById("ring-"+key);
-  const goals=getGoalsForYear(getSelectedContribYear());
-  if(cv&&acc)drawRing(cv,goals[key]>0?total/goals[key]:0,acc.color,70);
-}
-function refreshGrandTotals(){
-  const goals=getGoalsForYear(getSelectedContribYear());
-  const totals={};
-  ACCOUNTS.forEach(function(acc){
-    totals[acc.key]=contribCache.filter(function(c){return c.account_key===acc.key&&(c.checked===true||c.checked==="true");}).reduce(function(s,c){return s+parseFloat(c.amount||0);},0);
-  });
-  const cT=ownerSum(totals,"Crystal");
-  const aT=ownerSum(totals,"Aaron");
-  const gT=cT+aT+(totals.emergency||0);
-  const cG=ACCOUNTS.filter(function(a){return a.owner==="Crystal";}).reduce(function(s,a){return s+(goals[a.key]||0);},0);
-  const aG=ACCOUNTS.filter(function(a){return a.owner==="Aaron";}).reduce(function(s,a){return s+(goals[a.key]||0);},0);
-  const gG=cG+aG+(goals.emergency||0);
-  [["crystal",cT,cG,"#7a9e7e"],["aaron",aT,aG,"#8b7aa0"],["grand",gT,gG,"#c4a882"]].forEach(function(arr){
-    const cv=document.getElementById("ring-"+arr[0]+"-total");if(cv)drawRing(cv,arr[2]>0?arr[1]/arr[2]:0,arr[3],60);
-  });
-}
+function refreshAccountTotal(key){}
+function refreshGrandTotals(){renderContribSummary();}
 
 // ── BILLS ─────────────────────────────────────────────────────────────────────
 let BILLS=[];
