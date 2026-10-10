@@ -2364,12 +2364,15 @@ function toggleBillEdit(id){const el=document.getElementById("bill-edit-"+id);if
 const HOUSE_CARDS=["Debit (SoFi)","Credit (Chase)","Credit (Amex)","Wire / Check","Escrow"];
 const PURCHASE_SUBCATS=["Down Payment","Earnest Money","Closing Costs","Inspection & Appraisal","Moving"];
 function getHouseSubcatMap(){const m={};houseSubcatCache.forEach(function(r){m[r.txn_id]=r.subcategory;});return m;}
-function isHouseCat(cat){return HOUSE_CATS.indexOf(cat)>=0;}
+function normCat(c){return String(c||"").trim().toLowerCase();}
+const ALWAYS_HOUSE_CATS=["house expense","house expenses","mortgage"];
+function isHouseCat(cat){const n=normCat(cat);return ALWAYS_HOUSE_CATS.indexOf(n)>=0||HOUSE_CATS.some(function(h){return normCat(h)===n;});}
 function getHouseTxns(){
   const sm=getHouseSubcatMap();
   return txnCache.filter(function(t){
     if(sm[t.id]) return true;
     if(!isHouseCat(t.category)) return false;
+    if(ALWAYS_HOUSE_CATS.indexOf(normCat(t.category))>=0) return true;
     if(HOUSE_START&&t.date<HOUSE_START) return false;
     return true;
   });
@@ -2524,7 +2527,7 @@ function renderHouseTransactions(){
   const txns=getHouseTxns().filter(function(t){
     if(yr!=="all"&&String(t.year)!==String(yr)) return false;
     if(sub!=="all"&&sm[t.id]!==sub) return false;
-    if(cat!=="all"&&t.category!==cat) return false;
+    if(cat!=="all"&&normCat(t.category)!==normCat(cat)) return false;
     if(search&&!(t.store||"").toLowerCase().includes(search)&&!(t.note||"").toLowerCase().includes(search)) return false;
     return true;
   }).sort(function(a,b){return b.date.localeCompare(a.date);});
